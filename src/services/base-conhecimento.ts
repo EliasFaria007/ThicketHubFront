@@ -6,23 +6,23 @@ export interface NovoArtigoPayload {
   resumo: string;
   conteudo: string;
   setor: string;
-  categoria?: string;
-  tags?: string[];
-  anexoPdfNome?: string;
-  anexoPdfTamanho?: number;
-  anexoPdfBase64?: string;
+  categoria?: string | undefined;
+  tags?: string[] | undefined;
+  anexoPdfNome?: string | undefined;
+  anexoPdfTamanho?: number | undefined;
+  anexoPdfBase64?: string | undefined;
 }
 
 export interface AtualizarArtigoPayload {
-  titulo?: string;
-  resumo?: string;
-  conteudo?: string;
-  setor?: string;
-  categoria?: string;
-  tags?: string[];
-  anexoPdfNome?: string | null;
-  anexoPdfTamanho?: number | null;
-  anexoPdfBase64?: string | null;
+  titulo?: string | undefined;
+  resumo?: string | undefined;
+  conteudo?: string | undefined;
+  setor?: string | undefined;
+  categoria?: string | undefined;
+  tags?: string[] | undefined;
+  anexoPdfNome?: string | null | undefined;
+  anexoPdfTamanho?: number | null | undefined;
+  anexoPdfBase64?: string | null | undefined;
 }
 
 const ARTIGOS_PADRAO: ArtigoBaseConhecimento[] = [

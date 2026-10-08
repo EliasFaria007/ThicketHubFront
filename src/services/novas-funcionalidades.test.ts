@@ -106,6 +106,44 @@ describe("Base de Conhecimento / FAQ (Autoatendimento)", () => {
     expect(lista.corpo.data.some((a) => a.id === criacao.corpo.data.id)).toBe(true);
   });
 
+  it("permite a um técnico criar e atualizar artigo com anexo em PDF", async () => {
+    definirAtorDemo(TECNICO);
+    const pdfNome = "manual_configuracao_vpn.pdf";
+    const pdfBase64 = "data:application/pdf;base64,JVBERi0xLjQKJ...";
+    const pdfTamanho = 102400; // 100 KB
+
+    const novo = {
+      titulo: "Manual Completo de Conexão à VPN Institucional",
+      resumo: "Passo a passo com PDF anexo para instalação do cliente VPN corporativo.",
+      conteudo: "Baixe o PDF anexo com as instruções de parametrização e autenticação multifator.",
+      setor: "TI",
+      categoria: "Rede",
+      tags: ["vpn", "acesso remoto", "manual"],
+      anexoPdfNome: pdfNome,
+      anexoPdfTamanho: pdfTamanho,
+      anexoPdfBase64: pdfBase64,
+    };
+
+    const criacao = await chamar<ArtigoBaseConhecimento>("POST", "/base-conhecimento", novo);
+    expect([200, 201]).toContain(criacao.status);
+    expect(criacao.corpo.data.anexoPdfNome).toBe(pdfNome);
+    expect(criacao.corpo.data.anexoPdfTamanho).toBe(pdfTamanho);
+    expect(criacao.corpo.data.anexoPdfBase64).toBe(pdfBase64);
+
+    // Atualização do anexo
+    const atualizacao = await chamar<ArtigoBaseConhecimento>(
+      "PUT",
+      `/base-conhecimento/${criacao.corpo.data.id}`,
+      {
+        anexoPdfNome: "manual_vpn_v2.pdf",
+        anexoPdfTamanho: 150000,
+      },
+    );
+    expect(atualizacao.status).toBe(200);
+    expect(atualizacao.corpo.data.anexoPdfNome).toBe("manual_vpn_v2.pdf");
+    expect(atualizacao.corpo.data.anexoPdfTamanho).toBe(150000);
+  });
+
   it("impede que usuário comum crie ou remova artigos da base de conhecimento", async () => {
     definirAtorDemo(USUARIO);
     const criacao = await chamar<ArtigoBaseConhecimento>("POST", "/base-conhecimento", {
@@ -113,6 +151,36 @@ describe("Base de Conhecimento / FAQ (Autoatendimento)", () => {
       conteudo: "conteudo",
     });
     expect(criacao.status).toBe(403);
+  });
+});
+
+describe("Domínios Institucionais e Domínio Padrão", () => {
+  it("salva novos domínios e mantém o domínio padrão selecionado corretamente mesmo com @", async () => {
+    definirAtorDemo(SUPER);
+
+    const payload = {
+      dominios: ["@instituto.gov.br", "@defensoria.mg.def.br", "@novo-orgao.gov.br"],
+      padrao: "@novo-orgao.gov.br",
+    };
+
+    const resposta = await chamar<{ dominios: string[]; padrao: string }>(
+      "PUT",
+      "/configuracoes/dominios",
+      payload,
+    );
+
+    expect(resposta.status).toBe(200);
+    expect(resposta.corpo.data.dominios).toContain("novo-orgao.gov.br");
+    expect(resposta.corpo.data.padrao).toBe("novo-orgao.gov.br");
+
+    // Consulta subsequente (GET)
+    const consulta = await chamar<{ dominios: string[]; padrao: string }>(
+      "GET",
+      "/configuracoes/dominios",
+    );
+    expect(consulta.status).toBe(200);
+    expect(consulta.corpo.data.padrao).toBe("novo-orgao.gov.br");
+    expect(consulta.corpo.data.dominios).toContain("novo-orgao.gov.br");
   });
 });
 

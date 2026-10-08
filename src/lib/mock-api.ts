@@ -426,6 +426,7 @@ function ehSuper(u: User) {
 }
 
 function registrarAuditoria(acao: string, detalhe: string, usuario = atorAtual()) {
+  const ipCliente = typeof window !== "undefined" && window.location.hostname ? window.location.hostname : "127.0.0.1";
   auditoria = [
     {
       id: `a${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
@@ -433,7 +434,7 @@ function registrarAuditoria(acao: string, detalhe: string, usuario = atorAtual()
       detalhe,
       usuarioId: String(usuario.id),
       usuarioNome: usuario.nome,
-      ip: "10.20.30.40",
+      ip: ipCliente === "localhost" ? "127.0.0.1" : ipCliente,
       criadoEm: new Date().toISOString(),
     },
     ...auditoria,
@@ -1586,13 +1587,13 @@ const rotas: Rota[] = [
       const u = atorAtual();
       if (!ehSuper(u)) return erro(403, "Apenas o superusuário pode gerenciar os domínios institucionais.");
       const dominios = Array.isArray(body["dominios"])
-        ? (body["dominios"] as string[]).map((d) => String(d).trim().toLowerCase()).filter(Boolean)
+        ? (body["dominios"] as string[]).map((d) => String(d).trim().toLowerCase().replace(/^@+/, "")).filter(Boolean)
         : [];
-      const padrao = String(body["padrao"] ?? "").trim().toLowerCase();
+      let padrao = String(body["padrao"] ?? "").trim().toLowerCase().replace(/^@+/, "");
 
       if (dominios.length === 0) return erro(422, "Pelo menos um domínio institucional deve ser configurado.");
-      if (!dominios.includes(padrao)) {
-        return erro(422, "O domínio pré-selecionado padrão deve estar contido na lista de domínios cadastrados.");
+      if (!padrao || !dominios.includes(padrao)) {
+        padrao = dominios[0] ?? "";
       }
 
       configDominios = { dominios, padrao };
@@ -1611,13 +1612,13 @@ const rotas: Rota[] = [
       const u = atorAtual();
       if (!ehSuper(u)) return erro(403, "Apenas o superusuário pode gerenciar os domínios institucionais.");
       const dominios = Array.isArray(body["dominios"])
-        ? (body["dominios"] as string[]).map((d) => String(d).trim().toLowerCase()).filter(Boolean)
+        ? (body["dominios"] as string[]).map((d) => String(d).trim().toLowerCase().replace(/^@+/, "")).filter(Boolean)
         : [];
-      const padrao = String(body["padrao"] ?? "").trim().toLowerCase();
+      let padrao = String(body["padrao"] ?? "").trim().toLowerCase().replace(/^@+/, "");
 
       if (dominios.length === 0) return erro(422, "Pelo menos um domínio institucional deve ser configurado.");
-      if (!dominios.includes(padrao)) {
-        return erro(422, "O domínio pré-selecionado padrão deve estar contido na lista de domínios cadastrados.");
+      if (!padrao || !dominios.includes(padrao)) {
+        padrao = dominios[0] ?? "";
       }
 
       configDominios = { dominios, padrao };
@@ -1832,7 +1833,10 @@ const rotas: Rota[] = [
     padrao: /^\/configuracoes\/email$/,
     responder: () => {
       const u = atorAtual();
-      if (u.papel !== "admin" && !ehSuper(u)) return erro(403, "Acesso restrito à administração.");
+      const papel = (u.papel || "").toLowerCase();
+      if (papel !== "admin" && papel !== "superusuario" && papel !== "super") {
+        return erro(403, "Acesso restrito à administração.");
+      }
       return ok(configEmail);
     },
   },
@@ -1841,7 +1845,10 @@ const rotas: Rota[] = [
     padrao: /^\/configuracoes\/email$/,
     responder: ({ body }) => {
       const u = atorAtual();
-      if (!ehSuper(u) && u.papel !== "admin") return erro(403, "Acesso restrito à administração.");
+      const papel = (u.papel || "").toLowerCase();
+      if (papel !== "admin" && papel !== "superusuario" && papel !== "super") {
+        return erro(403, "Acesso restrito à administração.");
+      }
       configEmail = { ...configEmail, ...body };
       registrarAuditoria("config.email", `Configurações de E-mail atualizadas por ${u.nome}`, u);
       return ok(configEmail, "Configurações de e-mail e notificações salvas com sucesso.");
@@ -1852,7 +1859,10 @@ const rotas: Rota[] = [
     padrao: /^\/configuracoes\/email\/testar$/,
     responder: ({ body }) => {
       const u = atorAtual();
-      if (u.papel !== "admin" && !ehSuper(u)) return erro(403, "Acesso restrito à administração.");
+      const papel = (u.papel || "").toLowerCase();
+      if (papel !== "admin" && papel !== "superusuario" && papel !== "super") {
+        return erro(403, "Acesso restrito à administração.");
+      }
       const dest = String(body["destinatario"] ?? u.email);
       return ok({
         sucesso: true,

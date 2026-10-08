@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import { ArrowLeft, BookOpen, CheckCircle, ExternalLink, Lightbulb, Loader2, PlusCircle, X } from "lucide-react";
+import { ArrowLeft, BookOpen, CheckCircle, Download, ExternalLink, FileText, Lightbulb, Loader2, PlusCircle, X } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -228,6 +228,26 @@ function NovoChamadoPage() {
             <div className="prose prose-sm dark:prose-invert max-w-none border-y border-border py-4 whitespace-pre-line text-sm text-foreground">
               {artigoVisualizando.conteudo}
             </div>
+
+            {/* Anexo em PDF se houver */}
+            {artigoVisualizando.anexoPdfNome && artigoVisualizando.anexoPdfBase64 && (
+              <div className="rounded-lg border border-border bg-card p-3 flex items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2 truncate">
+                  <FileText className="size-4 text-red-500 shrink-0" />
+                  <span className="font-medium text-foreground truncate">{artigoVisualizando.anexoPdfNome}</span>
+                </div>
+                <a
+                  href={artigoVisualizando.anexoPdfBase64}
+                  download={artigoVisualizando.anexoPdfNome}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-md bg-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 shrink-0"
+                >
+                  <Download className="size-3.5" />
+                  Baixar PDF
+                </a>
+              </div>
+            )}
 
             <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
               <Button

@@ -25,6 +25,7 @@ import { RotaProtegida } from "@/components/layout/RotaProtegida";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { SETORES } from "@/lib/dominio";
 import {
   obterConfiguracaoEmail,
   obterConfiguracaoLdap,
@@ -464,7 +465,7 @@ function PainelEmail() {
   });
 
   const mTestar = useMutation({
-    mutationFn: testarEnvioEmail,
+    mutationFn: () => testarEnvioEmail(emailTeste, form),
     onSuccess: (res) => {
       setResultadoTeste(res);
       if (res.sucesso) {
@@ -486,6 +487,30 @@ function PainelEmail() {
 
   return (
     <div className="space-y-6">
+      {/* Barra de Ações Rápidas do Topo */}
+      <div className="surface-card flex flex-wrap items-center justify-between gap-4 p-4">
+        <div className="flex items-center gap-3">
+          <div className="flex size-9 items-center justify-center rounded-lg bg-primary-soft text-primary">
+            <Mail className="size-5" />
+          </div>
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">Mensageria Institucional</h3>
+            <p className="text-xs text-muted-foreground">
+              SMTP: {form.ativo ? <span className="text-emerald-600 font-medium">Habilitado</span> : <span className="text-muted-foreground">Desabilitado</span>} · Mail-to-Ticket: {form.mailToTicketAtivo ? <span className="text-emerald-600 font-medium">Habilitado</span> : <span className="text-muted-foreground">Desabilitado</span>}
+            </p>
+          </div>
+        </div>
+        <Button
+          type="button"
+          disabled={mSalvar.isPending}
+          onClick={() => mSalvar.mutate(form)}
+          className="gap-1.5"
+        >
+          {mSalvar.isPending ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}
+          Salvar Configurações de E-mail
+        </Button>
+      </div>
+
       {/* Servidor SMTP de Saída */}
       <div className="surface-card p-6">
         <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -599,7 +624,7 @@ function PainelEmail() {
               variant="outline"
               size="sm"
               disabled={mTestar.isPending || !emailTeste.trim()}
-              onClick={() => mTestar.mutate(emailTeste)}
+              onClick={() => mTestar.mutate()}
               className="gap-1.5 shrink-0"
             >
               {mTestar.isPending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
@@ -607,7 +632,7 @@ function PainelEmail() {
             </Button>
           </div>
           {resultadoTeste && (
-            <p className={`mt-2 text-xs ${resultadoTeste.sucesso ? "text-emerald-600" : "text-destructive"}`}>
+            <p className={`mt-2 text-xs ${resultadoTeste.sucesso ? "text-emerald-600 font-medium" : "text-destructive font-medium"}`}>
               {resultadoTeste.mensagem}
             </p>
           )}
@@ -681,11 +706,18 @@ function PainelEmail() {
 
           <div className="space-y-1.5 sm:col-span-2">
             <Label htmlFor="setorPadrao">Setor Destino Padrão para Chamados Recebidos</Label>
-            <Input
+            <select
               id="setorPadrao"
-              value={form.setorPadrao ?? ""}
+              value={form.setorPadrao || "TI"}
               onChange={(e) => setForm((f) => ({ ...f, setorPadrao: e.target.value }))}
-            />
+              className="h-9 w-full rounded-md border border-input bg-card px-3 text-sm text-foreground"
+            >
+              {SETORES.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 

@@ -3,9 +3,12 @@ import { createFileRoute } from "@tanstack/react-router";
 import {
   BookOpen,
   Check,
+  Download,
+  FileText,
   Filter,
   HelpCircle,
   Loader2,
+  Paperclip,
   PlusCircle,
   Search,
   Tag,
@@ -78,6 +81,51 @@ function BaseConhecimentoPage() {
   const [formSetor, setFormSetor] = useState("TI");
   const [formCategoria, setFormCategoria] = useState("Geral");
   const [formTags, setFormTags] = useState("");
+  const [formAnexoPdfNome, setFormAnexoPdfNome] = useState("");
+  const [formAnexoPdfTamanho, setFormAnexoPdfTamanho] = useState<number | undefined>(undefined);
+  const [formAnexoPdfBase64, setFormAnexoPdfBase64] = useState("");
+
+  function formatarBytes(bytes?: number): string {
+    if (!bytes) return "";
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  function handlePdfChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+      toast.error("Apenas arquivos no formato PDF são permitidos.");
+      return;
+    }
+
+    const LIMITE_BYTES = 10 * 1024 * 1024;
+    if (file.size > LIMITE_BYTES) {
+      toast.error("O arquivo PDF deve ter no máximo 10 MB.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result as string;
+      setFormAnexoPdfNome(file.name);
+      setFormAnexoPdfTamanho(file.size);
+      setFormAnexoPdfBase64(result);
+      toast.success(`PDF anexado com sucesso: ${file.name}`);
+    };
+    reader.onerror = () => {
+      toast.error("Erro ao ler o arquivo PDF.");
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function removerAnexoPdf() {
+    setFormAnexoPdfNome("");
+    setFormAnexoPdfTamanho(undefined);
+    setFormAnexoPdfBase64("");
+  }
 
   const { data: artigos = [], isPending } = useQuery({
     queryKey: ["base-conhecimento", busca, setorFiltro],
@@ -99,6 +147,9 @@ function BaseConhecimentoPage() {
           setor: formSetor,
           categoria: formCategoria,
           tags: tagsArray,
+          anexoPdfNome: formAnexoPdfNome || null,
+          anexoPdfTamanho: formAnexoPdfTamanho || null,
+          anexoPdfBase64: formAnexoPdfBase64 || null,
         });
       } else {
         return criarArtigo({
@@ -108,6 +159,9 @@ function BaseConhecimentoPage() {
           setor: formSetor,
           categoria: formCategoria,
           tags: tagsArray,
+          anexoPdfNome: formAnexoPdfNome || undefined,
+          anexoPdfTamanho: formAnexoPdfTamanho,
+          anexoPdfBase64: formAnexoPdfBase64 || undefined,
         });
       }
     },
@@ -160,6 +214,9 @@ function BaseConhecimentoPage() {
     setFormSetor(user?.setor || "TI");
     setFormCategoria("Geral");
     setFormTags("");
+    setFormAnexoPdfNome("");
+    setFormAnexoPdfTamanho(undefined);
+    setFormAnexoPdfBase64("");
     setModalEdicaoAberto(true);
   }
 
@@ -171,6 +228,9 @@ function BaseConhecimentoPage() {
     setFormSetor(art.setor);
     setFormCategoria(art.categoria);
     setFormTags(art.tags.join(", "));
+    setFormAnexoPdfNome(art.anexoPdfNome || "");
+    setFormAnexoPdfTamanho(art.anexoPdfTamanho);
+    setFormAnexoPdfBase64(art.anexoPdfBase64 || "");
     setModalEdicaoAberto(true);
   }
 
@@ -256,7 +316,14 @@ function BaseConhecimentoPage() {
                       <span className="rounded bg-primary-soft px-2 py-0.5 font-medium text-primary">
                         {art.setor}
                       </span>
-                      <span>{art.categoria}</span>
+                      <div className="flex items-center gap-2">
+                        {art.anexoPdfNome && (
+                          <span className="inline-flex items-center gap-1 rounded bg-red-500/10 px-1.5 py-0.5 text-[10px] font-semibold text-red-600 dark:text-red-400">
+                            <FileText className="size-3" /> PDF
+                          </span>
+                        )}
+                        <span>{art.categoria}</span>
+                      </div>
                     </div>
 
                     <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors line-clamp-2">
@@ -314,6 +381,44 @@ function BaseConhecimentoPage() {
               <div className="prose prose-sm dark:prose-invert max-w-none border-y border-border py-4 whitespace-pre-line text-sm leading-relaxed text-foreground">
                 {artigoSelecionado.conteudo}
               </div>
+
+              {/* Anexo em PDF (se existir) */}
+              {artigoSelecionado.anexoPdfNome && (
+                <div className="rounded-lg border border-border bg-card p-3.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-red-500/10 text-red-600 dark:text-red-400">
+                      <FileText className="size-5" />
+                    </div>
+                    <div className="truncate">
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-sm font-semibold text-foreground truncate">
+                          {artigoSelecionado.anexoPdfNome}
+                        </h4>
+                        <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground shrink-0">
+                          PDF
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Documento anexo complementar {artigoSelecionado.anexoPdfTamanho ? `· ${formatarBytes(artigoSelecionado.anexoPdfTamanho)}` : ""}
+                      </p>
+                    </div>
+                  </div>
+                  {artigoSelecionado.anexoPdfBase64 ? (
+                    <a
+                      href={artigoSelecionado.anexoPdfBase64}
+                      download={artigoSelecionado.anexoPdfNome}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors shrink-0"
+                    >
+                      <Download className="size-3.5" />
+                      Baixar Anexo PDF
+                    </a>
+                  ) : (
+                    <span className="text-xs text-muted-foreground italic shrink-0">Anexo indisponível</span>
+                  )}
+                </div>
+              )}
 
               {/* Tags */}
               {artigoSelecionado.tags.length > 0 && (
@@ -479,6 +584,48 @@ function BaseConhecimentoPage() {
                 value={formTags}
                 onChange={(e) => setFormTags(e.target.value)}
               />
+            </div>
+
+            {/* Upload de Anexo em PDF */}
+            <div className="space-y-2 rounded-lg border border-border bg-muted/20 p-3">
+              <Label className="text-xs font-semibold flex items-center gap-1.5 text-foreground">
+                <Paperclip className="size-3.5 text-primary" />
+                Anexo em PDF (Opcional - Manual, Tutorial ou Resolução)
+              </Label>
+              {formAnexoPdfNome ? (
+                <div className="flex items-center justify-between rounded-md border border-border bg-card p-2 text-xs">
+                  <div className="flex items-center gap-2 truncate">
+                    <FileText className="size-4 text-red-500 shrink-0" />
+                    <span className="font-medium truncate text-foreground">{formAnexoPdfNome}</span>
+                    {formAnexoPdfTamanho && (
+                      <span className="text-muted-foreground shrink-0">({formatarBytes(formAnexoPdfTamanho)})</span>
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="h-7 text-destructive hover:bg-destructive/10 text-xs px-2"
+                    onClick={removerAnexoPdf}
+                  >
+                    <Trash2 className="size-3.5 mr-1" /> Remover
+                  </Button>
+                </div>
+              ) : (
+                <div>
+                  <label className="flex flex-col items-center justify-center border-2 border-dashed border-border rounded-md p-4 cursor-pointer hover:border-primary/60 transition-colors bg-card/50">
+                    <Paperclip className="size-5 text-muted-foreground mb-1" />
+                    <span className="text-xs font-medium text-foreground">Clique para selecionar um arquivo PDF</span>
+                    <span className="text-[11px] text-muted-foreground">Documento PDF de até 10 MB</span>
+                    <input
+                      type="file"
+                      accept="application/pdf,.pdf"
+                      className="hidden"
+                      onChange={handlePdfChange}
+                    />
+                  </label>
+                </div>
+              )}
             </div>
 
             <DialogFooter>

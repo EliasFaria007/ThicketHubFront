@@ -101,7 +101,7 @@ const CONFIG_EMAIL_PADRAO: ConfiguracaoEmail = {
 export async function obterConfiguracaoEmail(): Promise<ConfiguracaoEmail> {
   try {
     const dados = await apiGet<ConfiguracaoEmail>("/configuracoes/email");
-    if (dados && typeof dados === "object" && typeof dados.ativo === "boolean") {
+    if (dados && typeof dados === "object") {
       return { ...CONFIG_EMAIL_PADRAO, ...dados };
     }
   } catch (err) {
@@ -120,9 +120,15 @@ export async function salvarConfiguracaoEmail(payload: Partial<ConfiguracaoEmail
   }
 }
 
-export async function testarEnvioEmail(destinatario: string): Promise<ResultadoTesteEmail> {
+export async function testarEnvioEmail(
+  destinatario: string,
+  configuracao?: Partial<ConfiguracaoEmail>,
+): Promise<ResultadoTesteEmail> {
   try {
-    return await apiPost<ResultadoTesteEmail>("/configuracoes/email/testar", { destinatario });
+    return await apiPost<ResultadoTesteEmail>("/configuracoes/email/testar", {
+      destinatario,
+      ...configuracao,
+    });
   } catch {
     return {
       sucesso: true,
@@ -141,27 +147,28 @@ export interface ConfigDominios {
 }
 
 export async function obterDominiosInstitucionais(): Promise<ConfigDominios> {
+  const normalizar = (s: unknown) => String(s ?? "").trim().toLowerCase().replace(/^@+/, "");
   try {
     const raw = await apiGet<unknown>("/configuracoes/dominios");
     // Se for lista de objetos: [{ dominio: "...", ehPadrao: true }]
     if (Array.isArray(raw)) {
-      const dominios = raw.map((d: any) => String(d?.dominio ?? d)).filter(Boolean);
+      const dominios = raw.map((d: any) => normalizar(d?.dominio ?? d)).filter(Boolean);
       const padraoObj = raw.find((d: any) => Boolean(d?.ehPadrao));
-      const padrao = padraoObj?.dominio ?? dominios[0] ?? "";
+      const padrao = normalizar(padraoObj?.dominio ?? dominios[0] ?? "");
       return { dominios, padrao };
     }
     // Se for objeto com dominios
     if (raw && typeof raw === "object") {
       const obj = raw as Record<string, any>;
       if (Array.isArray(obj["dominios"])) {
-        const dominios = obj["dominios"].map((d: any) => String(d?.dominio ?? d)).filter(Boolean);
-        const padrao = String(obj["padrao"] ?? dominios[0] ?? "");
+        const dominios = obj["dominios"].map((d: any) => normalizar(d?.dominio ?? d)).filter(Boolean);
+        const padrao = normalizar(obj["padrao"] ?? dominios[0] ?? "");
         return { dominios, padrao };
       }
       if (Array.isArray(obj["itens"])) {
-        const dominios = obj["itens"].map((d: any) => String(d?.dominio ?? d)).filter(Boolean);
+        const dominios = obj["itens"].map((d: any) => normalizar(d?.dominio ?? d)).filter(Boolean);
         const padraoObj = obj["itens"].find((d: any) => Boolean(d?.ehPadrao));
-        const padrao = padraoObj?.dominio ?? dominios[0] ?? "";
+        const padrao = normalizar(padraoObj?.dominio ?? dominios[0] ?? "");
         return { dominios, padrao };
       }
     }
@@ -172,15 +179,22 @@ export async function obterDominiosInstitucionais(): Promise<ConfigDominios> {
 }
 
 export async function salvarDominiosInstitucionais(payload: ConfigDominios): Promise<ConfigDominios> {
+  const normalizar = (s: unknown) => String(s ?? "").trim().toLowerCase().replace(/^@+/, "");
+  const dominiosLimpos = (payload.dominios || []).map(normalizar).filter(Boolean);
+  const padraoLimpo = normalizar(payload.padrao || dominiosLimpos[0] || "");
+  const payloadLimpo = { dominios: dominiosLimpos, padrao: padraoLimpo };
+
   try {
-    const res = await apiPut<any>("/configuracoes/dominios", payload);
-    if (res && Array.isArray(res.dominios)) {
-      return { dominios: res.dominios, padrao: String(res.padrao ?? payload.padrao) };
+    const res = await apiPut<any>("/configuracoes/dominios", payloadLimpo);
+    if (res && typeof res === "object") {
+      const lista = Array.isArray(res.dominios) ? res.dominios.map(normalizar).filter(Boolean) : dominiosLimpos;
+      const padraoRetorno = normalizar(res.padrao ?? padraoLimpo);
+      return { dominios: lista, padrao: padraoRetorno };
     }
   } catch (err) {
     console.warn("[DOMINIOS] Falha ao salvar no back-end via PUT, mantendo payload:", err);
   }
-  return payload;
+  return payloadLimpo;
 }
 
 export const obterConfigDominios = obterDominiosInstitucionais;
