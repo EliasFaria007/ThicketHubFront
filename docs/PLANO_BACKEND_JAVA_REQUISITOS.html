@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Plano de Implementação Back-End Java & Infraestrutura - Ticket Hub</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 18mm 14mm 18mm 14mm;
+      @bottom-right {
+        content: "Página " counter(page) " de " counter(pages);
+        font-family: 'Segoe UI', Arial, sans-serif;
+        font-size: 8.5pt;
+        color: #64748b;
+      }
+      @bottom-left {
+        content: "Ticket Hub — Central Institucional de Chamados";
+        font-family: 'Segoe UI', Arial, sans-serif;
+        font-size: 8.5pt;
+        color: #64748b;
+      }
+    }
+
+    body {
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+      font-size: 9.5pt;
+      line-height: 1.55;
+      color: #1e293b;
+      background: #ffffff;
+      margin: 0;
+      padding: 0;
+    }
+
+    .cover {
+      page-break-after: always;
+      text-align: center;
+      padding-top: 80px;
+      padding-bottom: 60px;
+    }
+    .cover-badge {
+      display: inline-block;
+      padding: 6px 18px;
+      background: #eff6ff;
+      color: #1d4ed8;
+      border: 1px solid #bfdbfe;
+      border-radius: 9999px;
+      font-weight: 700;
+      font-size: 9.5pt;
+      margin-bottom: 28px;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+    }
+    .cover-title {
+      font-size: 25pt;
+      font-weight: 800;
+      color: #0f172a;
+      line-height: 1.25;
+      margin-bottom: 18px;
+    }
+    .cover-subtitle {
+      font-size: 13.5pt;
+      color: #475569;
+      margin-bottom: 40px;
+      max-width: 620px;
+      margin-left: auto;
+      margin-right: auto;
+      line-height: 1.4;
+    }
+    .cover-meta {
+      margin-top: 70px;
+      padding: 24px;
+      background: #f8fafc;
+      border-radius: 12px;
+      border: 1px solid #e2e8f0;
+      display: inline-block;
+      text-align: left;
+      font-size: 9.5pt;
+      color: #334155;
+      line-height: 1.7;
+    }
+    .cover-meta p {
+      margin: 4px 0;
+    }
+
+    h1.title-h1 {
+      font-size: 17pt;
+      font-weight: 800;
+      color: #0f172a;
+      border-bottom: 2.5px solid #2563eb;
+      padding-bottom: 6px;
+      margin-top: 32px;
+      margin-bottom: 16px;
+      page-break-after: avoid;
+    }
+    h2.title-h2 {
+      font-size: 13pt;
+      font-weight: 700;
+      color: #1e3a8a;
+      margin-top: 24px;
+      margin-bottom: 10px;
+      border-bottom: 1px solid #cbd5e1;
+      padding-bottom: 4px;
+      page-break-after: avoid;
+    }
+    h3.title-h3 {
+      font-size: 10.5pt;
+      font-weight: 700;
+      color: #0f172a;
+      margin-top: 18px;
+      margin-bottom: 8px;
+      page-break-after: avoid;
+    }
+    h4.title-h4 {
+      font-size: 9.5pt;
+      font-weight: 600;
+      color: #334155;
+      margin-top: 14px;
+      margin-bottom: 6px;
+      page-break-after: avoid;
+    }
+
+    p {
+      margin-top: 0;
+      margin-bottom: 10px;
+      text-align: justify;
+    }
+
+    ul, ol {
+      margin-top: 0;
+      margin-bottom: 12px;
+      padding-left: 22px;
+    }
+    li {
+      margin-bottom: 4px;
+    }
+
+    .table-container {
+      margin: 16px 0;
+      page-break-inside: avoid;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 8.5pt;
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+    }
+    th {
+      background: #f1f5f9;
+      color: #0f172a;
+      font-weight: 700;
+      text-align: left;
+      padding: 8px 10px;
+      border: 1px solid #cbd5e1;
+      text-transform: uppercase;
+      font-size: 8pt;
+      letter-spacing: 0.5px;
+    }
+    td {
+      padding: 6px 10px;
+      border: 1px solid #e2e8f0;
+      color: #334155;
+      vertical-align: top;
+    }
+    tr:nth-child(even) td {
+      background: #f8fafc;
+    }
+
+    .code-block {
+      margin: 14px 0;
+      background: #0f172a;
+      border-radius: 6px;
+      overflow: hidden;
+      page-break-inside: avoid;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .code-header {
+      background: #1e293b;
+      color: #93c5fd;
+      font-size: 7.5pt;
+      font-weight: 700;
+      padding: 4px 12px;
+      letter-spacing: 1px;
+      border-bottom: 1px solid #334155;
+    }
+    pre {
+      margin: 0;
+      padding: 12px;
+      overflow-x: auto;
+      background: #0f172a;
+      color: #e2e8f0;
+      font-family: 'Consolas', 'Fira Code', 'Courier New', monospace;
+      font-size: 8pt;
+      line-height: 1.42;
+    }
+    code.inline-code {
+      font-family: 'Consolas', 'Fira Code', monospace;
+      background: #f1f5f9;
+      color: #0f172a;
+      padding: 1px 5px;
+      border-radius: 4px;
+      font-size: 8.5pt;
+      border: 1px solid #e2e8f0;
+    }
+
+    .alert-box {
+      margin: 14px 0;
+      padding: 12px 16px;
+      background: #eff6ff;
+      border-left: 4px solid #3b82f6;
+      color: #1e3a8a;
+      border-radius: 0 6px 6px 0;
+      font-size: 9.5pt;
+    }
+
+    .section-divider {
+      border: 0;
+      height: 1px;
+      background: #e2e8f0;
+      margin: 24px 0;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Capa do Documento -->
+  <div class="cover">
+    <div class="cover-badge">Documento de Engenharia de Software</div>
+    <div class="cover-title">Plano de Implementação Back-End Java, Tecnologias & Infraestrutura</div>
+    <div class="cover-subtitle">Central Institucional de Chamados — Sistema de Atendimento e Helpdesk (Ticket Hub)</div>
+    
+    <div class="cover-meta">
+      <p><strong>Stack Tecnológica:</strong> Java 21 (LTS) · Spring Boot 3.3 · PostgreSQL 16 · Redis · Docker · Kubernetes</p>
+      <p><strong>Configurações:</strong> Spring Security 6, JWT, HikariCP, Flyway, WebSocket STOMP & OpenAPI 3</p>
+      <p><strong>Data de Emissão:</strong> 25 de Agosto de 2026</p>
+      <p><strong>Versão do Documento:</strong> 2.0 (Completa com Configurações e Infraestrutura)</p>
+      <p><strong>Status:</strong> Aprovado para Implementação</p>
+    </div>
+  </div>
+
+  <!-- Conteúdo Principal -->
+  <div class="content">
+    <h1 class="title-h1">Especificação Completa de Requisitos, Arquitetura de Pastas e Classes, Segurança, Tecnologias e Infraestrutura do Back-End Java (Spring Boot 3 / Java 21)</h1>
+
+<p>Este documento estabelece a especificação técnica oficial, análise detalhada de requisitos, <strong>arquitetura completa de pastas, pacotes e catálogo detalhado de todas as classes Java</strong>, <strong>arquitetura de segurança em profundidade (Defense-in-Depth, Zero Trust, OWASP Top 10, Spring Security 6, JWT & RBAC)</strong>, modelagem relacional, catálogo de contratos REST, <strong>pilha de tecnologias, dependências Maven (<code class="inline-code">pom.xml</code>), configurações (<code class="inline-code">application.yml</code>), classes Java de segurança e infraestrutura (Docker, Kubernetes, CI/CD, Observabilidade)</strong> para a <strong>Central Institucional de Chamados (Ticket Hub)</strong>.</p>
+
+<hr class="section-divider" />
+
+<h2 class="title-h2">1. Visão Geral e Arquitetura do Sistema</h2>
+
+<h3 class="title-h3">1.1 Objetivo</h3>
+Substituir a camada simulada (<code class="inline-code">mock-api.ts</code>) por uma API RESTful corporativa, resiliente, segura e auditável desenvolvida em <strong>Java 21 LTS</strong> e <strong>Spring Boot 3.3+</strong>, mantendo <strong>100% de compatibilidade</strong> com o front-end React/TypeScript já existente.
+
+<h3 class="title-h3">1.2 Padrão Arquitetural de Software (Clean Layered Architecture)</h3>
+
+<p>A aplicação adota uma <strong>Arquitetura Limpa em Camadas (Layered Clean Architecture)</strong> com princípios de <strong>Domain-Driven Design (DDD)</strong> pragmático, garantindo baixo acoplamento, testabilidade e separação rigorosa de responsabilidades:</p>
+
+<div class="code-block"><div class="code-header">MERMAID</div><pre><code>graph TD
+    subgraph Camada_Apresentacao ["1. Camada de Apresentação (Interface / Web)"]
+        Controllers["REST Controllers (@RestController)"]
+        ExceptionHandlers["GlobalExceptionHandler (RFC 7807)"]
+        SecurityFilters["Security Filter Chain (JWT Filter, CORS, Rate Limit)"]
+        WebSockets["WebSocket Handlers (STOMP Broker)"]
+    end
+
+    subgraph Camada_Aplicacao ["2. Camada de Aplicação (Use Cases &amp; Orchestration)"]
+        Services["Application Services (Transações &amp; Casos de Uso)"]
+        Mappers["MapStruct Mappers (DTO &lt;-&gt; Entity)"]
+        Schedulers["Scheduled Tasks (SLA Engine &amp; OTP Cleaner)"]
+    end
+
+    subgraph Camada_Dominio ["3. Camada de Domínio (Core Business)"]
+        Entities["Entidades de Domínio (@Entity com @Version)"]
+        Enums["Enums (StatusChamado, Papel, Prioridade)"]
+        DomainServices["Domain Services (Máquina de Estados &amp; SLA Rules)"]
+        BusinessExceptions["RegraNegocioException &amp; Domain Events"]
+    end
+
+    subgraph Camada_Infraestrutura ["4. Camada de Infraestrutura (Adapters &amp; External)"]
+        SpringDataRepo["Spring Data JPA Repositories (com Specifications)"]
+        RedisAdapter["Redis Adapter (Cache, Blacklist &amp; Rate Limit)"]
+        SmsAdapter["SMS Gateway Client (Zenvia / Twilio / SMPP)"]
+        MailAdapter["SMTP Mail Client (JavaMailSender)"]
+        AuditoriaAOP["Auditoria Interceptor (Spring AOP @Auditable)"]
+    end
+
+    Camada_Apresentacao --&gt; Camada_Aplicacao
+    Camada_Aplicacao --&gt; Camada_Dominio
+    Camada_Aplicacao --&gt; Camada_Infraestrutura
+    Camada_Infraestrutura --&gt; Camada_Dominio
+</code></pre></div>
+
+<hr class="section-divider" />
+
+<h2 class="title-h2">2. Arquitetura Detalhada de Pastas, Pacotes e Classes</h2>
+
+<h3 class="title-h3">2.1 Árvore Completa de Diretórios do Projeto</h3>
+
+<div class="code-block"><div class="code-header">TEXT</div><pre><code>ticket-hub-api/
+├── pom.xml                                      # Configuração de dependências Maven e plugins de build
+├── mvnw / mvnw.cmd                              # Maven Wrapper
+├── Dockerfile                                   # Build multi-stage para containerização (Java 21 JRE)
+├── README.md                                    # Instruções de setup e desenvolvimento
+│
+├── src/
+│   ├── main/
+│   │   ├── java/
+│   │   │   └── br/
+│   │   │       └── gov/
+│   │   │           └── tickethub/
+│   │   │               ├── TicketHubApiApplication.java       # Ponto de entrada da aplicação Spring Boot
+│   │   │               │
+│   │   │               ├── config/                            # Classes de configuração de infraestrutura
+│   │   │               │   ├── SecurityConfig.java            # Spring Security 6, RBAC e regras de rotas
+│   │   │               │   ├── CorsConfig.java                # Política de CORS para o frontend React
+│   │   │               │   ├── OpenApiConfig.java             # Especificação Swagger / OpenAPI com Bearer Auth
+│   │   │               │   ├── RedisConfig.java               # Serializadores e conexão Lettuce com Redis
+│   │   │               │   ├── WebSocketConfig.java           # Broker STOMP e endpoints de WebSocket
+│   │   │               │   ├── JpaAuditingConfig.java         # Auditoria automática de entidades (@CreatedDate)
+│   │   │               │   ├── AsyncConfig.java               # Configuração de execução assíncrona (Virtual Threads)
+│   │   │               │   └── JacksonConfig.java             # Formatação de datas ISO-8601 e UTC
+│   │   │               │
+│   │   │               ├── domain/                            # Camada de Domínio / Regras de Negócio
+│   │   │               │   ├── model/                         # Entidades JPA persistidas no PostgreSQL
+│   │   │               │   │   ├── Usuario.java               # Servidores, perfis e credenciais
+│   │   │               │   │   ├── UsuarioSetorLiberado.java  # Mapeamento de filas autorizadas por técnico
+│   │   │               │   │   ├── Chamado.java               # Entidade central de chamado (com @Version)
+│   │   │               │   │   ├── Comentario.java            # Mensagens públicas e notas técnicas internas
+│   │   │               │   │   ├── HistoricoChamado.java      # Trilha de auditoria interna do chamado
+│   │   │               │   │   ├── ChamadoVinculo.java        # Relacionamentos (duplicados / relacionados)
+│   │   │               │   │   ├── Servico.java               # Itens do catálogo de serviços
+│   │   │               │   │   ├── SlaConfig.java             # Prazos de atendimento/resolução por prioridade
+│   │   │               │   │   ├── ConfigDominio.java         # Domínios institucionais permitidos e padrão
+│   │   │               │   │   ├── Auditoria.java             # Trilha de auditoria global de operações
+│   │   │               │   │   ├── Notificacao.java           # Alertas do sino de notificações do usuário
+│   │   │               │   │   └── RecuperacaoSms.java        # OTPs de 6 dígitos e tickets temporários
+│   │   │               │   │
+│   │   │               │   └── enums/                         # Enumerações de Domínio
+│   │   │               │       ├── Papel.java                 # USUARIO, TECNICO, ADMIN, SUPERUSUARIO
+│   │   │               │       ├── StatusChamado.java         # AGUARDANDO, EM_ANDAMENTO, PAUSADO, RESOLVIDO, CANCELADO
+│   │   │               │       ├── PrioridadeChamado.java     # BAIXA, MEDIA, ALTA, CRITICA
+│   │   │               │       ├── TipoHistorico.java         # ABERTURA, ASSUNCAO, STATUS, ENCAMINHAMENTO, etc.
+│   │   │               │       └── TipoVinculo.java           # RELACIONADO, DUPLICADO
+│   │   │               │
+│   │   │               ├── dto/                               # Data Transfer Objects (Records imutáveis)
+│   │   │               │   ├── request/                       # DTOs de Entrada (Payloads validados)
+│   │   │               │   │   ├── LoginRequest.java
+│   │   │               │   │   ├── RefreshTokenRequest.java
+│   │   │               │   │   ├── CompletarCadastroRequest.java
+│   │   │               │   │   ├── AlterarSenhaRequest.java
+│   │   │               │   │   ├── SolicitarSmsRequest.java
+│   │   │               │   │   ├── ValidarSmsRequest.java
+│   │   │               │   │   ├── RedefinirSenhaRequest.java
+│   │   │               │   │   ├── NovoChamadoRequest.java
+│   │   │               │   │   ├── AtualizarChamadoRequest.java
+│   │   │               │   │   ├── EncaminharChamadoRequest.java
+│   │   │               │   │   ├── DevolverChamadoRequest.java
+│   │   │               │   │   ├── ReabrirChamadoRequest.java
+│   │   │               │   │   ├── AvaliarChamadoRequest.java
+│   │   │               │   │   ├── NovoComentarioRequest.java
+│   │   │               │   │   ├── VincularChamadoRequest.java
+│   │   │               │   │   ├── CriarUsuarioRequest.java
+│   │   │               │   │   ├── AtualizarUsuarioRequest.java
+│   │   │               │   │   ├── ResetarSenhaManualRequest.java
+│   │   │               │   │   ├── ImportarUsuariosLoteRequest.java
+│   │   │               │   │   ├── UsuarioLoteItemDTO.java
+│   │   │               │   │   ├── ConfigDominiosRequest.java
+│   │   │               │   │   ├── ServicoRequest.java
+│   │   │               │   │   └── SlaConfigRequest.java
+│   │   │               │   │
+│   │   │               │   └── response/                      # DTOs de Saída (Respostas da API)
+│   │   │               │       ├── ApiResponse.java           # Envelope padronizado { data, mensagem, erros }
+│   │   │               │       ├── AuthResponse.java          # Retorno com JWT, Refresh Token e dados do usuário
+│   │   │               │       ├── UsuarioResponse.java       # Dados cadastrais do servidor
+│   │   │               │       ├── ChamadoResumoResponse.java # Visão enxuta para tabelas de fila
+│   │   │               │       ├── ChamadoDetalheResponse.java# Visão completa com histórico e comentários
+│   │   │               │       ├── ComentarioResponse.java    # Dados do comentário com autor
+│   │   │               │       ├── HistoricoResponse.java     # Eventos do histórico
+│   │   │               │       ├── ServicoResponse.java       # Serviço do catálogo
+│   │   │               │       ├── SlaConfigResponse.java     # Tabela de SLA
+│   │   │               │       ├── ConfigDominiosResponse.java# Domínios e padrão pré-selecionado
+│   │   │               │       ├── AuditoriaResponse.java     # Registro de auditoria
+│   │   │               │       ├── NotificacaoResponse.java   # Notificação individual
+│   │   │               │       ├── NotificacoesListResponse.java# Lista de notificações + contador não lidas
+│   │   │               │       ├── MetricasResponse.java      # Indicadores executivos e cumprimento de SLA
+│   │   │               │       ├── ImportarLoteResponse.java  # Relatório de importação (sucessos e rejeições)
+│   │   │               │       └── PaginacaoResponse.java     # Container paginado { items, total, page, totalPages }
+│   │   │               │
+│   │   │               ├── repository/                        # Camada de Persistência (Spring Data JPA)
+│   │   │               │   ├── UsuarioRepository.java
+│   │   │               │   ├── ChamadoRepository.java
+│   │   │               │   ├── ComentarioRepository.java
+│   │   │               │   ├── HistoricoChamadoRepository.java
+│   │   │               │   ├── ServicoRepository.java
+│   │   │               │   ├── SlaConfigRepository.java
+│   │   │               │   ├── ConfigDominioRepository.java
+│   │   │               │   ├── AuditoriaRepository.java
+│   │   │               │   ├── NotificacaoRepository.java
+│   │   │               │   ├── RecuperacaoSmsRepository.java
+│   │   │               │   └── specification/                 # Filtros Dinâmicos com JPA Criteria
+│   │   │               │       ├── ChamadoSpecification.java  # Filtros por setor, status, solicitante, fila, q
+│   │   │               │       └── AuditoriaSpecification.java# Filtros por período, usuário e ação
+│   │   │               │
+│   │   │               ├── service/                           # Camada de Serviços e Regras de Negócio
+│   │   │               │   ├── AuthService.java               # Interface de autenticação, refresh e OTP
+│   │   │               │   ├── UsuarioService.java            # Interface de gestão de usuários e lotes
+│   │   │               │   ├── ChamadoService.java            # Interface do ciclo de vida dos chamados
+│   │   │               │   ├── SlaService.java                # Interface de cálculo e controle de SLA
+│   │   │               │   ├── ServicoService.java            # Interface de catálogo de serviços
+│   │   │               │   ├── AuditoriaService.java          # Interface de gravação e consulta de auditoria
+│   │   │               │   ├── NotificacaoService.java        # Interface de notificações e WebSocket push
+│   │   │               │   ├── SmsService.java                # Interface de envio de SMS corporativo
+│   │   │               │   ├── EmailService.java              # Interface de envio de e-mails SMTP
+│   │   │               │   └── impl/                          # Implementações (@Service @Transactional)
+│   │   │               │       ├── AuthServiceImpl.java
+│   │   │               │       ├── UsuarioServiceImpl.java
+│   │   │               │       ├── ChamadoServiceImpl.java
+│   │   │               │       ├── SlaServiceImpl.java
+│   │   │               │       ├── ServicoServiceImpl.java
+│   │   │               │       ├── AuditoriaServiceImpl.java
+│   │   │               │       ├── NotificacaoServiceImpl.java
+│   │   │               │       ├── SmsServiceImpl.java
+│   │   │               │       └── EmailServiceImpl.java
+│   │   │               │
+│   │   │               ├── security/                          # Componentes de Segurança e Criptografia
+│   │   │               │   ├── JwtService.java                # Geração, assinatura e validação de tokens JWT
+│   │   │               │   ├── JwtAuthenticationFilter.java   # Filtro HTTP OncePerRequest para Bearer Token
+│   │   │               │   ├── UserDetailsServiceImpl.java    # Integração do Spring Security com o banco de dados
+│   │   │               │   ├── UserPrincipal.java             # Implementação customizada de UserDetails
+│   │   │               │   ├── SecurityUtils.java             # Helper estático para obter o usuário logado
+│   │   │               │   ├── ChamadoSecurity.java           # Avaliador SpEL para checar posse e filas liberadas
+│   │   │               │   └── RateLimiterService.java        # Rate Limiting com Token Bucket no Redis
+│   │   │               │
+│   │   │               ├── controller/                        # Endpoints REST (@RestController)
+│   │   │               │   ├── AuthController.java            # Login, Refresh, Onboarding, Reset SMS
+│   │   │               │   ├── ChamadoController.java         # CRUD, Filas, Assunção, Devolução, Resolução
+│   │   │               │   ├── UsuarioController.java         # Listagem, Cadastro, Lote, Reset Manual
+│   │   │               │   ├── CatalogoController.java        # Gestão de serviços do catálogo
+│   │   │               │   ├── SlaController.java             # Parametrização de SLA por prioridade
+│   │   │               │   ├── ConfiguracaoController.java    # Gestão de domínios institucionais
+│   │   │               │   ├── AuditoriaController.java       # Trilha de auditoria (com isolamento por perfil)
+│   │   │               │   ├── NotificacaoController.java     # Sino de notificações e marcação de lidas
+│   │   │               │   └── RelatorioController.java       # Métricas operacionais e exportações
+│   │   │               │
+│   │   │               ├── mapper/                            # Mapeadores MapStruct (Entity &lt;-&gt; DTO)
+│   │   │               │   ├── UsuarioMapper.java
+│   │   │               │   ├── ChamadoMapper.java
+│   │   │               │   ├── ComentarioMapper.java
+│   │   │               │   ├── ServicoMapper.java
+│   │   │               │   ├── AuditoriaMapper.java
+│   │   │               │   └── NotificacaoMapper.java
+│   │   │               │
+│   │   │               ├── exception/                         # Tratamento Global de Erros e Exceções
+│   │   │               │   ├── GlobalExceptionHandler.java    # @RestControllerAdvice com RFC 7807
+│   │   │               │   ├── BusinessException.java         # Exceção genérica de regra de negócio (422)
+│   │   │               │   ├── ResourceNotFoundException.java # Recurso não localizado (404)
+│   │   │               │   ├── UnauthorizedException.java     # Falha de autenticação (401)
+│   │   │               │   ├── ForbiddenException.java        # Falha de autorização / setor bloqueado (403)
+│   │   │               │   ├── ConflictException.java         # Duplicidade de e-mail / protocolo (409)
+│   │   │               │   └── ProblemDetailResponse.java     # Formato estruturado de erro
+│   │   │               │
+│   │   │               └── task/                              # Tarefas Agendadas em Background (@Scheduled)
+│   │   │                   ├── SlaCalculationScheduler.java   # Monitoramento contínuo de estouro de SLA
+│   │   │                   └── OtpCleanerScheduler.java       # Limpeza periódica de OTPs de SMS expirados
+│   │   │
+│   │   └── resources/
+│   │       ├── application.yml                                # Configurações gerais da aplicação
+│   │       ├── application-dev.yml                            # Perfil de desenvolvimento local
+│   │       ├── application-prod.yml                           # Perfil de produção (Kubernetes / Docker)
+│   │       └── db/
+│   │           └── migration/                                 # Scripts de Migração Versionada Flyway
+│   │               ├── V1__init_schema.sql                    # Criação das 12 tabelas e índices
+│   │               ├── V2__seed_initial_data.sql              # Carga inicial do superusuário e catálogo
+│   │               └── V3__triggers_audit.sql                 # Triggers automáticas de auditoria
+│   │
+│   └── test/
+│       ├── java/
+│       │   └── br/
+│       │       └── gov/
+│       │           └── tickethub/
+│       │               ├── service/                           # Testes Unitários de Serviços (Mockito)
+│       │               │   ├── ChamadoServiceTest.java
+│       │               │   ├── SlaServiceTest.java
+│       │               │   ├── UsuarioServiceTest.java
+│       │               │   └── AuthServiceTest.java
+│       │               ├── controller/                        # Testes de Integração de Controllers (MockMvc)
+│       │               │   ├── ChamadoControllerIntegrationTest.java
+│       │               │   ├── AuthControllerIntegrationTest.java
+│       │               │   └── AuditoriaControllerIntegrationTest.java
+│       │               └── testcontainers/                    # Testes com PostgreSQL e Redis Reais
+│       │                   └── BaseIntegrationTest.java
+│       └── resources/
+│           └── application-test.yml                           # Configuração dos testes automatizados
+</code></pre></div>
+
+<hr class="section-divider" />
+
+<h3 class="title-h3">2.2 Catálogo Detalhado de Responsabilidade de Cada Classe</h3>
+
+<h4 class="title-h4">📦 Pacote <code class="inline-code">config/</code> (Configurações do Framework)</h4>
+- <strong><code class="inline-code">SecurityConfig.java</code></strong>: Configura o <code class="inline-code">SecurityFilterChain</code> do Spring Security 6. Define rotas públicas vs. autenticadas, desabilita CSRF (por ser API REST stateless com JWT), configura o <code class="inline-code">DaoAuthenticationProvider</code>, o <code class="inline-code">BCryptPasswordEncoder(12)</code> e a política de CORS.
+- <strong><code class="inline-code">CorsConfig.java</code></strong>: Configura as origens permitidas (<code class="inline-code">allowed-origins</code>), métodos HTTP (<code class="inline-code">GET, POST, PUT, DELETE, OPTIONS</code>) e liberação do envio de credenciais (cookies/tokens).
+- <strong><code class="inline-code">OpenApiConfig.java</code></strong>: Configura o OpenAPI 3.0 para geração da documentação Swagger em <code class="inline-code">/swagger-ui.html</code>. Inclui a definição do esquema de segurança <code class="inline-code">bearerAuth</code> (JWT).
+- <strong><code class="inline-code">RedisConfig.java</code></strong>: Cria o <code class="inline-code">RedisTemplate<String, Object></code> com serializadores <code class="inline-code">StringRedisSerializer</code> para chaves e <code class="inline-code">GenericJackson2JsonRedisSerializer</code> para objetos JSON.
+- <strong><code class="inline-code">WebSocketConfig.java</code></strong>: Implementa <code class="inline-code">WebSocketMessageBrokerConfigurer</code>, habilitando o broker <code class="inline-code">/topic</code> (broadcast) e <code class="inline-code">/queue</code> (mensagens privadas por usuário <code class="inline-code">/user</code>), além do endpoint de handshake <code class="inline-code">/ws</code>.
+- <strong><code class="inline-code">JpaAuditingConfig.java</code></strong>: Habilita <code class="inline-code">@EnableJpaAuditing</code> para preenchimento automático de campos <code class="inline-code">@CreatedDate</code> e <code class="inline-code">@LastModifiedDate</code> nas entidades.
+- <strong><code class="inline-code">AsyncConfig.java</code></strong>: Habilita <code class="inline-code">@EnableAsync</code> utilizando o pool de <strong>Virtual Threads</strong> do Java 21 (<code class="inline-code">Executors.newVirtualThreadPerTaskExecutor()</code>).
+
+<hr class="section-divider" />
+
+<h4 class="title-h4">📦 Pacote <code class="inline-code">domain/model/</code> (Entidades de Banco de Dados JPA)</h4>
+- <strong><code class="inline-code">Usuario.java</code></strong>: Representa a tabela <code class="inline-code">tb_usuario</code>. Contém <code class="inline-code">id</code>, <code class="inline-code">nome</code>, <code class="inline-code">email</code>, <code class="inline-code">senhaHash</code>, <code class="inline-code">papel</code> (Enum <code class="inline-code">Papel</code>), <code class="inline-code">setor</code>, <code class="inline-code">telefone</code>, <code class="inline-code">localidade</code>, <code class="inline-code">podeCadastrarUsuarios</code>, <code class="inline-code">primeiroAcessoConcluido</code>, <code class="inline-code">ativo</code>, <code class="inline-code">criadoEm</code> e a coleção <code class="inline-code">@ElementCollection</code> de <code class="inline-code">setoresLiberados</code>.
+- <strong><code class="inline-code">Chamado.java</code></strong>: Representa a tabela <code class="inline-code">tb_chamado</code>. Contém <code class="inline-code">id</code>, <code class="inline-code">protocolo</code>, <code class="inline-code">titulo</code>, <code class="inline-code">descricao</code>, <code class="inline-code">status</code> (Enum <code class="inline-code">StatusChamado</code>), <code class="inline-code">prioridade</code> (Enum <code class="inline-code">PrioridadeChamado</code>), <code class="inline-code">setor</code>, <code class="inline-code">servico</code> (<code class="inline-code">@ManyToOne</code>), <code class="inline-code">solicitante</code> (<code class="inline-code">@ManyToOne</code>), <code class="inline-code">tecnico</code> (<code class="inline-code">@ManyToOne</code>), <code class="inline-code">filaSetor</code>, <code class="inline-code">@Version Long versao</code> (concorrência otimista), <code class="inline-code">slaAtendimentoHoras</code>, <code class="inline-code">slaResolucaoHoras</code>, <code class="inline-code">slaConsumidoMs</code>, <code class="inline-code">slaRodandoDesde</code>, <code class="inline-code">primeiraRespostaEm</code>, <code class="inline-code">oQueFoiFeito</code>, <code class="inline-code">resolvidoEm</code>, <code class="inline-code">motivoReabertura</code>, <code class="inline-code">avaliacao</code> e coleções de comentários e histórico.
+- <strong><code class="inline-code">Comentario.java</code></strong>: Representa <code class="inline-code">tb_comentario</code>. Relaciona <code class="inline-code">@ManyToOne</code> com <code class="inline-code">Chamado</code> e <code class="inline-code">Usuario</code> (autor), contendo a <code class="inline-code">mensagem</code>, flag <code class="inline-code">interno</code> (nota técnica invisível ao solicitante) e data de criação.
+- <strong><code class="inline-code">HistoricoChamado.java</code></strong>: Representa <code class="inline-code">tb_historico_chamado</code>. Armazena imutavelmente cada mudança de status, assunção, encaminhamento ou devolução com <code class="inline-code">tipo</code>, <code class="inline-code">descricao</code> e <code class="inline-code">autorNome</code>.
+- <strong><code class="inline-code">ChamadoVinculo.java</code></strong>: Representa <code class="inline-code">tb_chamado_vinculo</code>. Mapeia associações entre chamados (<code class="inline-code">chamadoOrigemId</code>, <code class="inline-code">chamadoDestinoId</code>, <code class="inline-code">tipo</code> Enum <code class="inline-code">TipoVinculo</code>).
+- <strong><code class="inline-code">Servico.java</code></strong>: Representa <code class="inline-code">tb_servico</code>. Define itens do catálogo com <code class="inline-code">nome</code>, <code class="inline-code">setor</code>, <code class="inline-code">prioridade</code>, prazos de SLA e flag <code class="inline-code">ativo</code>.
+- <strong><code class="inline-code">SlaConfig.java</code></strong>: Representa <code class="inline-code">tb_sla_config</code>. Tabela paramétrica com os prazos padrão em horas por prioridade (<code class="inline-code">baixa</code>, <code class="inline-code">media</code>, <code class="inline-code">alta</code>, <code class="inline-code">critica</code>).
+- <strong><code class="inline-code">ConfigDominio.java</code></strong>: Representa <code class="inline-code">tb_config_dominio</code>. Lista os domínios aceitos pela instituição e define qual é o pré-selecionado (<code class="inline-code">ehPadrao</code>).
+- <strong><code class="inline-code">Auditoria.java</code></strong>: Representa <code class="inline-code">tb_auditoria</code>. Registra todas as ações do sistema com <code class="inline-code">acao</code>, <code class="inline-code">detalhe</code>, <code class="inline-code">usuarioId</code>, <code class="inline-code">usuarioNome</code>, <code class="inline-code">ipOrigem</code> e <code class="inline-code">criadoEm</code>.
+- <strong><code class="inline-code">Notificacao.java</code></strong>: Representa <code class="inline-code">tb_notificacao</code>. Alertas do usuário com <code class="inline-code">usuarioId</code>, <code class="inline-code">chamadoId</code>, <code class="inline-code">tipo</code>, <code class="inline-code">mensagem</code> e flag <code class="inline-code">lida</code>.
+- <strong><code class="inline-code">RecuperacaoSms.java</code></strong>: Representa <code class="inline-code">tb_recuperacao_sms</code>. Armazena o <code class="inline-code">codigoHash</code> (OTP de 6 dígitos), <code class="inline-code">ticketValidacao</code>, <code class="inline-code">expiraEm</code>, contador de <code class="inline-code">tentativas</code> e flag <code class="inline-code">utilizado</code>.
+
+<hr class="section-divider" />
+
+<h4 class="title-h4">📦 Pacote <code class="inline-code">dto/</code> (Records de Entrada e Saída)</h4>
+- <strong><code class="inline-code">LoginRequest.java</code></strong>: <code class="inline-code">record LoginRequest(@NotBlank @Email String email, @NotBlank @Size(min = 6) String password)</code>
+- <strong><code class="inline-code">NovoChamadoRequest.java</code></strong>: <code class="inline-code">record NovoChamadoRequest(@NotBlank @Size(min = 5, max = 200) String titulo, @NotBlank String descricao, @NotBlank String servicoId)</code>
+- <strong><code class="inline-code">AtualizarChamadoRequest.java</code></strong>: <code class="inline-code">record AtualizarChamadoRequest(StatusChamado status, PrioridadeChamado prioridade, String oQueFoiFeito, Long versao)</code>
+- <strong><code class="inline-code">DevolverChamadoRequest.java</code></strong>: <code class="inline-code">record DevolverChamadoRequest(@NotBlank @Size(min = 3) String motivo)</code>
+- <strong><code class="inline-code">EncaminharChamadoRequest.java</code></strong>: <code class="inline-code">record EncaminharChamadoRequest(String tecnicoId, String filaSetor, @NotBlank String motivo)</code>
+- <strong><code class="inline-code">ImportarUsuariosLoteRequest.java</code></strong>: <code class="inline-code">record ImportarUsuariosLoteRequest(@NotEmpty List<UsuarioLoteItemDTO> usuarios)</code>
+- <strong><code class="inline-code">ApiResponse.java</code></strong>: <code class="inline-code">record ApiResponse<T>(T data, String mensagem, List<String> erros, int status)</code>
+- <strong><code class="inline-code">PaginacaoResponse.java</code></strong>: <code class="inline-code">record PaginacaoResponse<T>(List<T> items, long total, int page, int limit, int totalPages)</code>
+
+<hr class="section-divider" />
+
+<h4 class="title-h4">📦 Pacote <code class="inline-code">repository/</code> (Acesso a Dados)</h4>
+- <strong><code class="inline-code">UsuarioRepository.java</code></strong>: Métodos <code class="inline-code">findByEmail(String email)</code>, <code class="inline-code">existsByEmail(String email)</code>, <code class="inline-code">findByPapel(Papel papel)</code>.
+- <strong><code class="inline-code">ChamadoRepository.java</code></strong>: Estende <code class="inline-code">JpaRepository<Chamado, String></code> e <code class="inline-code">JpaSpecificationExecutor<Chamado></code> para consultas paginadas com filtros dinâmicos complexos.
+- <strong><code class="inline-code">ChamadoSpecification.java</code></strong>: Constrói predicados dinâmicos JPA Criteria combinando:
+  - Filtro de visibilidade por perfil (<code class="inline-code">solicitante.id == user.id</code> para usuário comum; <code class="inline-code">setor IN (setoresLiberados)</code> para técnicos e administradores).
+  - Filtros de query parameters: <code class="inline-code">status</code>, <code class="inline-code">prioridade</code>, <code class="inline-code">setor</code>, <code class="inline-code">servicoId</code>, <code class="inline-code">fila</code> (<code class="inline-code">minha</code> onde <code class="inline-code">tecnico.id == user.id</code>; <code class="inline-code">geral</code> onde <code class="inline-code">tecnico IS NULL</code>), busca textual <code class="inline-code">q</code> por protocolo, título ou solicitante.
+- <strong><code class="inline-code">AuditoriaRepository.java</code> & <code class="inline-code">AuditoriaSpecification.java</code></strong>: Permite filtrar logs de auditoria com isolamento rigoroso (<code class="inline-code">usuarioId == user.id</code> quando o solicitante for perfil <code class="inline-code">tecnico</code>).
+
+<hr class="section-divider" />
+
+<h4 class="title-h4">📦 Pacote <code class="inline-code">service/</code> (Casos de Uso e Lógica de Negócio)</h4>
+- <strong><code class="inline-code">AuthServiceImpl.java</code></strong>:
+  - <code class="inline-code">login()</code>: Autentica credenciais com <code class="inline-code">AuthenticationManager</code>, emite JWT e Refresh Token, grava auditoria <code class="inline-code">auth.login</code>.
+  - <code class="inline-code">refreshToken()</code>: Valida o refresh token no Redis e emite novo par de tokens.
+  - <code class="inline-code">solicitarCodigoSms()</code>: Localiza o usuário, gera OTP numérico aleatório de 6 dígitos, salva hash no banco/Redis com expiração de 5 minutos e dispara SMS corporativo.
+  - <code class="inline-code">validarCodigoSms()</code>: Valida OTP com controle de rate limiting (máximo 3 tentativas) e gera ticket temporário UUID de redefinição.
+  - <code class="inline-code">redefinirSenhaComTicket()</code>: Aplica a nova senha criptografada com BCrypt e invalida o ticket.
+  - <code class="inline-code">completarCadastro()</code>: Salva telefone e localidade física no primeiro login e marca <code class="inline-code">primeiroAcessoConcluido = true</code>.
+- <strong><code class="inline-code">ChamadoServiceImpl.java</code></strong>:
+  - <code class="inline-code">criarChamado()</code>: Gera protocolo único (ex.: <code class="inline-code">CH-2026-0825-XXXX</code>), calcula prazos de SLA a partir do catálogo, persiste e notifica o setor via WebSocket.
+  - <code class="inline-code">assumirChamado()</code>: Atribui o técnico logado ao chamado, finaliza o SLA de primeiro atendimento (<code class="inline-code">primeiraRespostaEm</code>), sincroniza SLA de resolução e grava histórico.
+  - <code class="inline-code">pausarChamado()</code> & <code class="inline-code">retomarChamado()</code>: Congela/retoma a contagem de SLA atualizando <code class="inline-code">slaConsumidoMs</code> e <code class="inline-code">slaRodandoDesde</code>.
+  - <code class="inline-code">resolverChamado()</code>: Valida o preenchimento obrigatório de <code class="inline-code">oQueFoiFeito</code>, altera status para <code class="inline-code">resolvido</code>, grava data de resolução e notifica o solicitante para avaliação.
+  - <code class="inline-code">devolverChamado()</code>: Remove técnico atribuído, retorna chamado para <code class="inline-code">filaSetor</code> com justificativa e reativa contagem de SLA.
+  - <code class="inline-code">reabrirChamado()</code>: Ação exclusiva de administradores/superusuários para reabrir chamado resolvido.
+- <strong><code class="inline-code">UsuarioServiceImpl.java</code></strong>:
+  - <code class="inline-code">criarUsuario()</code>: Valida se o domínio pertence a <code class="inline-code">tb_config_dominio</code>, criptografa senha temporária e persiste.
+  - <code class="inline-code">importarEmLote()</code>: Processa lista em lote, valida linha a linha integridade, duplicatas e domínios, persistindo em lote e retornando relatório com lista de sucessos e falhas.
+  - <code class="inline-code">resetarSenhaManual()</code>: Permite que Admin/Super/Técnico gere nova senha aleatória para servidores com auditoria registrada.
+
+<hr class="section-divider" />
+
+<h4 class="title-h4">📦 Pacote <code class="inline-code">security/</code> (Componentes de Segurança)</h4>
+- <strong><code class="inline-code">JwtService.java</code></strong>: Métodos <code class="inline-code">generateToken()</code>, <code class="inline-code">generateRefreshToken()</code>, <code class="inline-code">extractUsername()</code>, <code class="inline-code">extractClaim()</code>, <code class="inline-code">isTokenValid()</code>. Utiliza a biblioteca <code class="inline-code">io.jsonwebtoken</code> (JJWT 0.12.5).
+- <strong><code class="inline-code">JwtAuthenticationFilter.java</code></strong>: Intercepta toda requisição HTTP, extrai o header <code class="inline-code">Authorization: Bearer <token></code>, checa se o token está na lista negra do Redis, valida a assinatura e injeta o <code class="inline-code">UsernamePasswordAuthenticationToken</code> no <code class="inline-code">SecurityContextHolder</code>.
+- <strong><code class="inline-code">ChamadoSecurity.java</code></strong>: Bean <code class="inline-code">@Component("chamadoSecurity")</code> utilizado em anotações SpEL para validar em tempo de execução se o técnico possui permissão para atuar sobre o setor do chamado.
+- <strong><code class="inline-code">RateLimiterService.java</code></strong>: Implementa o algoritmo de Token Bucket utilizando comandos atômicos do Redis (<code class="inline-code">INCR</code> e <code class="inline-code">EXPIRE</code>) para mitigar ataques de força bruta.
+
+<hr class="section-divider" />
+
+<h4 class="title-h4">📦 Pacote <code class="inline-code">exception/</code> (Tratamento Global de Erros)</h4>
+- <strong><code class="inline-code">GlobalExceptionHandler.java</code></strong>: Anotado com <code class="inline-code">@RestControllerAdvice</code>. Captura todas as exceções da aplicação e formata respostas no padrão <strong>RFC 7807 Problem Details</strong>:
+  - <code class="inline-code">MethodArgumentNotValidException</code> $\rightarrow$ <code class="inline-code">400 Bad Request</code> com lista detalhada de campos inválidos.
+  - <code class="inline-code">ResourceNotFoundException</code> $\rightarrow$ <code class="inline-code">404 Not Found</code>.
+  - <code class="inline-code">ForbiddenException</code> / <code class="inline-code">AccessDeniedException</code> $\rightarrow$ <code class="inline-code">403 Forbidden</code>.
+  - <code class="inline-code">ConflictException</code> $\rightarrow$ <code class="inline-code">409 Conflict</code>.
+  - <code class="inline-code">OptimisticLockException</code> $\rightarrow$ <code class="inline-code">409 Conflict</code> (informando que o registro foi modificado por outro operador).
+  - <code class="inline-code">Exception</code> genérica $\rightarrow$ <code class="inline-code">500 Internal Server Error</code> (mascarando detalhes internos em produção).
+
+<hr class="section-divider" />
+
+<h2 class="title-h2">3. Arquitetura de Segurança em Profundidade (Defense-in-Depth & Zero Trust)</h2>
+
+<div class="code-block"><div class="code-header">MERMAID</div><pre><code>graph LR
+    Req["Requisição HTTPS"] --&gt; WAF["WAF &amp; Rate Limiter (IP)"]
+    WAF --&gt; Headers["Secure Headers (CSP, HSTS, X-Frame)"]
+    Headers --&gt; CorsFilter["CORS Validation Filter"]
+    CorsFilter --&gt; JwtAuth["JwtAuthenticationFilter (Bearer Validation)"]
+    JwtAuth --&gt; Blacklist["Redis Token Blacklist Check"]
+    Blacklist --&gt; MethodSec["@PreAuthorize / SpEL (RBAC &amp; Setores)"]
+    MethodSec --&gt; Sanitizer["OWASP HTML Sanitizer (XSS Protection)"]
+    Sanitizer --&gt; ServiceLogic["Lógica de Negócio Segura"]
+    ServiceLogic --&gt; AuditLog["Trilha de Auditoria Imutável"]
+</code></pre></div>
+
+<h3 class="title-h3">3.1 Proteção Ativa Contra as Vulnerabilidades OWASP Top 10</h3>
+
+<div class="table-container"><table><thead><tr><th>Vulnerabilidade OWASP</th><th>Mitigação Implementada no Back-End Java</th></tr></thead><tbody><tr><td><strong>A01: Broken Access Control</strong></td><td>Verificação de permissões em 2 camadas (<code class="inline-code">SecurityFilterChain</code> + <code class="inline-code">@PreAuthorize</code> com checagem de <code class="inline-code">setoresLiberados</code> no banco/JWT). Usuários comuns nunca acessam dados de outros solicitantes.</td></tr><tr><td><strong>A02: Cryptographic Failures</strong></td><td>Senhas hasheadas com <code class="inline-code">BCryptPasswordEncoder</code> (fator de custo 12). Tokens e códigos SMS armazenados como hash SHA-256 no banco e Redis. Conexões SSL/TLS 1.3 obrigatórias em trânsito.</td></tr><tr><td><strong>A03: Injection (SQL & NoSQL)</strong></td><td>Utilização estrita de Spring Data JPA / Hibernate com <strong>Prepared Statements</strong> parametrizados. Não há concatenação de queries SQL nativas.</td></tr><tr><td><strong>A03: Cross-Site Scripting (XSS)</strong></td><td>Sanitização de todos os campos de texto livre (descrições, comentários, justificativas) via <code class="inline-code">OWASP Java HTML Sanitizer</code> antes da persistência no PostgreSQL.</td></tr><tr><td><strong>A04: Insecure Design & Brute Force</strong></td><td><strong>Rate Limiting</strong> com algoritmo Token Bucket via Redis (máximo 5 tentativas de login por minuto por IP; máximo 3 tentativas de código SMS por telefone/usuário antes do bloqueio temporário).</td></tr><tr><td><strong>A05: Security Misconfiguration</strong></td><td>Headers de segurança HTTP ativados no <code class="inline-code">SecurityConfig</code>: <code class="inline-code">X-Content-Type-Options: nosniff</code>, <code class="inline-code">X-Frame-Options: DENY</code>, <code class="inline-code">Content-Security-Policy</code>, <code class="inline-code">Strict-Transport-Security: max-age=31536000; includeSubDomains</code>.</td></tr><tr><td><strong>A07: Identification Failures</strong></td><td>Recuperação de senha por SMS OTP com código numérico criptográfico de 6 dígitos, expiração estrita de 5 minutos e descarte imediato após o primeiro uso.</td></tr><tr><td><strong>A08: Software & Data Integrity</strong></td><td>Validação estrita de DTOs com Jakarta Bean Validation (<code class="inline-code">@Valid</code>, <code class="inline-code">@NotNull</code>, <code class="inline-code">@Size</code>, <code class="inline-code">@Pattern</code>). Concorrência otimista com <code class="inline-code">@Version</code> contra sobreescrita acidental de dados (<em>lost updates</em>).</td></tr><tr><td><strong>A09: Security Logging & Monitoring</strong></td><td>Trilha de auditoria centralizada (<code class="inline-code">tb_auditoria</code>) gravando IP de origem, User-Agent, data/hora, autor e evento para todas as mutações cadastrais e de atendimento.</td></tr><tr><td><strong>A10: Server-Side Request Forgery (SSRF)</strong></td><td>URLs externas de Gateway SMS e Webhooks validadas contra lista estrita de domínios confiáveis (<em>whitelist</em>).</td></tr></tbody></table></div>
+---
+
+<h2 class="title-h2">4. Configurações Prontas para Produção (<code class="inline-code">pom.xml</code> e <code class="inline-code">application.yml</code>)</h2>
+
+<h3 class="title-h3">4.1 <code class="inline-code">pom.xml</code> Oficial</h3>
+
+<div class="code-block"><div class="code-header">XML</div><pre><code>&lt;?xml version="1.0" encoding="UTF-8"?&gt;
+&lt;project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd"&gt;
+    &lt;modelVersion&gt;4.0.0&lt;/modelVersion&gt;
+    &lt;parent&gt;
+        &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+        &lt;artifactId&gt;spring-boot-starter-parent&lt;/artifactId&gt;
+        &lt;version&gt;3.3.2&lt;/version&gt;
+        &lt;relativePath/&gt;
+    &lt;/parent&gt;
+    
+    &lt;groupId&gt;br.gov.instituto&lt;/groupId&gt;
+    &lt;artifactId&gt;ticket-hub-api&lt;/artifactId&gt;
+    &lt;version&gt;1.0.0&lt;/version&gt;
+    &lt;name&gt;ticket-hub-api&lt;/name&gt;
+    &lt;description&gt;API Corporativa da Central Institucional de Chamados&lt;/description&gt;
+    
+    &lt;properties&gt;
+        &lt;java.version&gt;21&lt;/java.version&gt;
+        &lt;jjwt.version&gt;0.12.5&lt;/jjwt.version&gt;
+        &lt;org.mapstruct.version&gt;1.5.5.Final&lt;/org.mapstruct.version&gt;
+        &lt;springdoc.version&gt;2.5.0&lt;/springdoc.version&gt;
+        &lt;testcontainers.version&gt;1.19.8&lt;/testcontainers.version&gt;
+    &lt;/properties&gt;
+    
+    &lt;dependencies&gt;
+        &lt;!-- Web &amp; Validation --&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-boot-starter-web&lt;/artifactId&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-boot-starter-validation&lt;/artifactId&gt;
+        &lt;/dependency&gt;
+        
+        &lt;!-- Segurança &amp; JWT --&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-boot-starter-security&lt;/artifactId&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;io.jsonwebtoken&lt;/groupId&gt;
+            &lt;artifactId&gt;jjwt-api&lt;/artifactId&gt;
+            &lt;version&gt;${jjwt.version}&lt;/version&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;io.jsonwebtoken&lt;/groupId&gt;
+            &lt;artifactId&gt;jjwt-impl&lt;/artifactId&gt;
+            &lt;version&gt;${jjwt.version}&lt;/version&gt;
+            &lt;scope&gt;runtime&lt;/scope&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;io.jsonwebtoken&lt;/groupId&gt;
+            &lt;artifactId&gt;jjwt-jackson&lt;/artifactId&gt;
+            &lt;version&gt;${jjwt.version}&lt;/version&gt;
+            &lt;scope&gt;runtime&lt;/scope&gt;
+        &lt;/dependency&gt;
+        
+        &lt;!-- Banco de Dados, JPA &amp; Flyway --&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-boot-starter-data-jpa&lt;/artifactId&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.postgresql&lt;/groupId&gt;
+            &lt;artifactId&gt;postgresql&lt;/artifactId&gt;
+            &lt;scope&gt;runtime&lt;/scope&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.flywaydb&lt;/groupId&gt;
+            &lt;artifactId&gt;flyway-core&lt;/artifactId&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.flywaydb&lt;/groupId&gt;
+            &lt;artifactId&gt;flyway-database-postgresql&lt;/artifactId&gt;
+        &lt;/dependency&gt;
+        
+        &lt;!-- Redis, Cache &amp; WebSocket --&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-boot-starter-data-redis&lt;/artifactId&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.apache.commons&lt;/groupId&gt;
+            &lt;artifactId&gt;commons-pool2&lt;/artifactId&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-boot-starter-websocket&lt;/artifactId&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-boot-starter-mail&lt;/artifactId&gt;
+        &lt;/dependency&gt;
+        
+        &lt;!-- Swagger OpenAPI &amp; Observabilidade --&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.springdoc&lt;/groupId&gt;
+            &lt;artifactId&gt;springdoc-openapi-starter-webmvc-ui&lt;/artifactId&gt;
+            &lt;version&gt;${springdoc.version}&lt;/version&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-boot-starter-actuator&lt;/artifactId&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;io.micrometer&lt;/groupId&gt;
+            &lt;artifactId&gt;micrometer-registry-prometheus&lt;/artifactId&gt;
+        &lt;/dependency&gt;
+        
+        &lt;!-- Utilitários --&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.projectlombok&lt;/groupId&gt;
+            &lt;artifactId&gt;lombok&lt;/artifactId&gt;
+            &lt;optional&gt;true&lt;/optional&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.mapstruct&lt;/groupId&gt;
+            &lt;artifactId&gt;mapstruct&lt;/artifactId&gt;
+            &lt;version&gt;${org.mapstruct.version}&lt;/version&gt;
+        &lt;/dependency&gt;
+        
+        &lt;!-- Testes &amp; Testcontainers --&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-boot-starter-test&lt;/artifactId&gt;
+            &lt;scope&gt;test&lt;/scope&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.springframework.security&lt;/groupId&gt;
+            &lt;artifactId&gt;spring-security-test&lt;/artifactId&gt;
+            &lt;scope&gt;test&lt;/scope&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.testcontainers&lt;/groupId&gt;
+            &lt;artifactId&gt;junit-jupiter&lt;/artifactId&gt;
+            &lt;scope&gt;test&lt;/scope&gt;
+        &lt;/dependency&gt;
+        &lt;dependency&gt;
+            &lt;groupId&gt;org.testcontainers&lt;/groupId&gt;
+            &lt;artifactId&gt;postgresql&lt;/artifactId&gt;
+            &lt;scope&gt;test&lt;/scope&gt;
+        &lt;/dependency&gt;
+    &lt;/dependencies&gt;
+    
+    &lt;build&gt;
+        &lt;plugins&gt;
+            &lt;plugin&gt;
+                &lt;groupId&gt;org.apache.maven.plugins&lt;/groupId&gt;
+                &lt;artifactId&gt;maven-compiler-plugin&lt;/artifactId&gt;
+                &lt;configuration&gt;
+                    &lt;source&gt;21&lt;/source&gt;
+                    &lt;target&gt;21&lt;/target&gt;
+                    &lt;annotationProcessorPaths&gt;
+                        &lt;path&gt;
+                            &lt;groupId&gt;org.projectlombok&lt;/groupId&gt;
+                            &lt;artifactId&gt;lombok&lt;/artifactId&gt;
+                            &lt;version&gt;${lombok.version}&lt;/version&gt;
+                        &lt;/path&gt;
+                        &lt;path&gt;
+                            &lt;groupId&gt;org.mapstruct&lt;/groupId&gt;
+                            &lt;artifactId&gt;mapstruct-processor&lt;/artifactId&gt;
+                            &lt;version&gt;${org.mapstruct.version}&lt;/version&gt;
+                        &lt;/path&gt;
+                    &lt;/annotationProcessorPaths&gt;
+                &lt;/configuration&gt;
+            &lt;/plugin&gt;
+            &lt;plugin&gt;
+                &lt;groupId&gt;org.springframework.boot&lt;/groupId&gt;
+                &lt;artifactId&gt;spring-boot-maven-plugin&lt;/artifactId&gt;
+            &lt;/plugin&gt;
+        &lt;/plugins&gt;
+    &lt;/build&gt;
+&lt;/project&gt;
+</code></pre></div>
+
+<hr class="section-divider" />
+
+<h3 class="title-h3">4.2 <code class="inline-code">application.yml</code> Oficial</h3>
+
+<div class="code-block"><div class="code-header">YAML</div><pre><code>server:
+  port: 8080
+  servlet:
+    context-path: /
+  compression:
+    enabled: true
+    mime-types: text/html,text/xml,text/plain,text/css,text/javascript,application/javascript,application/json
+    min-response-size: 1024
+
+spring:
+  application:
+    name: ticket-hub-api
+  threads:
+    virtual:
+      enabled: true
+      
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/tickethub_db}
+    username: ${SPRING_DATASOURCE_USERNAME:tickethub_user}
+    password: ${SPRING_DATASOURCE_PASSWORD:SecretDbPassword123!}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      pool-name: TicketHubHikariPool
+      maximum-pool-size: 20
+      minimum-idle: 5
+      idle-timeout: 300000
+      max-lifetime: 1200000
+      connection-timeout: 20000
+      leak-detection-threshold: 60000
+      
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: false
+        jdbc:
+          batch_size: 50
+          order_inserts: true
+          order_updates: true
+          
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    baseline-version: 0
+    validate-on-migrate: true
+
+  data:
+    redis:
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
+      password: ${SPRING_DATA_REDIS_PASSWORD:SecretRedisPass123!}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 2
+          max-wait: 2000ms
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:chave-super-secreta-institucional-minimo-256-bits-ticket-hub-sistema-2026}
+    expiration-ms: 3600000
+    refresh-expiration-ms: 604800000
+  sms:
+    gateway-url: ${SMS_GATEWAY_URL:https://api.zenvia.com/v2/channels/sms/messages}
+    api-token: ${SMS_API_TOKEN:chave-sms-institucional}
+    remetente: "TicketHub"
+    otp-expiration-minutes: 5
+    max-tentativas: 3
+  cors:
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:8080,http://localhost:5173,https://chamados.instituto.gov.br}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    display-request-duration: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+  endpoint:
+    health:
+      show-details: when_authorized
+      probes:
+        enabled: true
+</code></pre></div>
+
+<hr class="section-divider" />
+
+<h2 class="title-h2">5. Mapeamento Completo de Endpoints REST (32 Endpoints)</h2>
+
+<div class="table-container"><table><thead><tr><th>Método</th><th>Endpoint</th><th>Perfil Autorizado</th><th>Finalidade</th></tr></thead><tbody><tr><td><strong>POST</strong></td><td><code class="inline-code">/api/auth/login</code></td><td>Público</td><td>Autenticação institucional com retorno de JWT e Refresh Token.</td></tr><tr><td><strong>POST</strong></td><td><code class="inline-code">/api/auth/refresh</code></td><td>Público</td><td>Renovação do Access Token a partir do Refresh Token.</td></tr><tr><td><strong>POST</strong></td><td><code class="inline-code">/api/auth/completar-cadastro</code></td><td>Autenticado</td><td>Atualiza telefone e localidade no primeiro acesso.</td></tr><tr><td><strong>POST</strong></td><td><code class="inline-code">/api/auth/alterar-senha</code></td><td>Autenticado</td><td>Altera a senha do próprio usuário autenticado.</td></tr><tr><td><strong>POST</strong></td><td><code class="inline-code">/api/auth/recuperar-senha/solicitar-codigo</code></td><td>Público</td><td>Dispara SMS com OTP de 6 dígitos para o telefone do servidor.</td></tr><tr><td><strong>POST</strong></td><td><code class="inline-code">/api/auth/recuperar-senha/validar-codigo</code></td><td>Público</td><td>Valida OTP recebido via SMS e devolve ticket de redefinição.</td></tr><tr><td><strong>POST</strong></td><td><code class="inline-code">/api/auth/recuperar-senha/redefinir</code></td><td>Público</td><td>Redefine senha com o ticket validado.</td></tr><tr><td><strong>GET</strong></td><td><code class="inline-code">/api/chamados</code></td><td>Autenticado</td><td>Lista paginada de chamados com filtros (<code class="inline-code">fila</code>, <code class="inline-code">status</code>, <code class="inline-code">prioridade</code>, <code class="inline-code">setor</code>, <code class="inline-code">q</code>).</td></tr><tr><td><strong>GET</strong></td><td><code class="inline-code">/api/chamados/{id}</code></td><td>Autenticado</td><td>Consulta detalhada do chamado com histórico, comentários e anexos.</td></tr><tr><td><strong>POST</strong></td><td><code class="inline-code">/api/chamados</code></td><td><code class="inline-code">usuario</code>, <code class="inline-code">tecnico</code>, <code class="inline-code">admin</code>, <code class="inline-code">super</code></td><td>Criação de novo chamado.</td></tr><tr><td><strong>PUT</strong></td><td><code class="inline-code">/api/chamados/{id}</code></td><td><code class="inline-code">tecnico</code>, <code class="inline-code">admin</code>, <code class="inline-code">super</code></td><td>Atualização de status, prioridade ou solução técnica com controle de concorrência (<code class="inline-code">versao</code>).</td></tr><tr><td><strong>POST</strong></td><td><code class="inline-code">/api/chamados/{id}/assumir</code></td><td><code class="inline-code">tecnico</code>, <code class="inline-code">admin</code>, <code class="inline-code">super</code></td><td>Técnico assume a responsabilidade do atendimento.</td></tr><tr><td><strong>POST</strong></td><td><code class="inline-code">/api/chamados/{id}/devolver</code></td><td><code class="inline-code">tecnico</code>, <code class="inline-code">admin</code>, <code class="inline-code">super</code></td><td>Devolve chamado com justificativa para a fila geral do setor.</td></tr><tr><td><strong>POST</strong></td><td><code class="inline-code">/api/chamados/{id}/encaminhar</code></td><td><code class="inline-code">tecnico</code>, <code class="inline-code">admin</code>, <code class="inline-code">super</code></td><td>Transfere chamado para outro técnico ou setor.</td></tr><tr><td><strong>POST</strong></td><td><code class="inline-code">/api/chamados/{id}/reabrir</code></td><td><code class="inline-code">admin</code>, <code class="inline-code">super</code></td><td>Reabre chamado resolvido mediante justificativa.</td></tr><tr><td><strong>POST</strong></td><td><code class="inline-code">/api/chamados/{id}/avaliacao</code></td><td><code class="inline-code">solicitante</code></td><td>Avaliação com nota de 1 a 5 após a resolução.</td></tr><tr><td><strong>POST</strong></td><td><code class="inline-code">/api/chamados/{id}/comentarios</code></td><td>Autenticado</td><td>Adiciona comentário público ou nota técnica interna.</td></tr><tr><td><strong>POST</strong></td><td><code class="inline-code">/api/chamados/{id}/vinculos</code></td><td><code class="inline-code">tecnico</code>, <code class="inline-code">admin</code>, <code class="inline-code">super</code></td><td>Vincula como chamado relacionado ou duplicado.</td></tr><tr><td><strong>GET</strong></td><td><code class="inline-code">/api/chamados/metricas</code></td><td><code class="inline-code">admin</code>, <code class="inline-code">super</code>, <code class="inline-code">tecnico</code></td><td>Métricas operacionais, tempo médio e cumprimento de SLA.</td></tr><tr><td><strong>GET</strong></td><td><code class="inline-code">/api/usuarios</code></td><td><code class="inline-code">admin</code>, <code class="inline-code">super</code>, <code class="inline-code">tecnico</code> <em>(se permitido)</em></td><td>Listagem paginada de servidores.</td></tr><tr><td><strong>POST</strong></td><td><code class="inline-code">/api/usuarios</code></td><td><code class="inline-code">admin</code>, <code class="inline-code">super</code>, <code class="inline-code">tecnico</code> <em>(se permitido)</em></td><td>Cadastro individual de servidor com validação de domínio.</td></tr><tr><td><strong>POST</strong></td><td><code class="inline-code">/api/usuarios/lote</code></td><td><code class="inline-code">admin</code>, <code class="inline-code">super</code></td><td>Importação em massa de usuários (CSV / Texto).</td></tr><tr><td><strong>PUT</strong></td><td><code class="inline-code">/api/usuarios/{id}</code></td><td><code class="inline-code">admin</code>, <code class="inline-code">super</code></td><td>Atualização de dados cadastrais, perfil e filas liberadas.</td></tr><tr><td><strong>POST</strong></td><td><code class="inline-code">/api/usuarios/{id}/resetar-senha</code></td><td><code class="inline-code">tecnico</code>, <code class="inline-code">admin</code>, <code class="inline-code">super</code></td><td>Reset manual de senha com geração de credencial temporária.</td></tr><tr><td><strong>GET</strong></td><td><code class="inline-code">/api/configuracoes/dominios</code></td><td><code class="inline-code">admin</code>, <code class="inline-code">super</code></td><td>Lista domínios institucionais aceitos e domínio padrão.</td></tr><tr><td><strong>POST</strong></td><td><code class="inline-code">/api/configuracoes/dominios</code></td><td><code class="inline-code">super</code></td><td>Adiciona, remove ou altera o domínio institucional padrão.</td></tr><tr><td><strong>GET</strong></td><td><code class="inline-code">/api/servicos</code></td><td>Autenticado</td><td>Catálogo de serviços ativos e prazos de SLA.</td></tr><tr><td><strong>POST</strong></td><td><code class="inline-code">/api/servicos</code></td><td><code class="inline-code">super</code></td><td>Adiciona novo serviço ao catálogo institucional.</td></tr><tr><td><strong>PUT</strong></td><td><code class="inline-code">/api/servicos/{id}</code></td><td><code class="inline-code">super</code></td><td>Edita serviço existente no catálogo.</td></tr><tr><td><strong>GET</strong></td><td><code class="inline-code">/api/sla</code></td><td><code class="inline-code">admin</code>, <code class="inline-code">super</code></td><td>Consulta tabela de SLAs por prioridade.</td></tr><tr><td><strong>PUT</strong></td><td><code class="inline-code">/api/sla</code></td><td><code class="inline-code">super</code></td><td>Parametriza prazos de atendimento e resolução por prioridade.</td></tr><tr><td><strong>GET</strong></td><td><code class="inline-code">/api/auditoria</code></td><td><code class="inline-code">tecnico</code> <em>(próprios)</em>, <code class="inline-code">admin</code>, <code class="inline-code">super</code> <em>(todos)</em></td><td>Consulta trilha de auditoria rastreável.</td></tr><tr><td><strong>GET</strong></td><td><code class="inline-code">/api/notificacoes</code></td><td>Autenticado</td><td>Lista notificações não lidas e recentes do usuário.</td></tr><tr><td><strong>POST</strong></td><td><code class="inline-code">/api/notificacoes/ler</code></td><td>Autenticado</td><td>Marca notificações como lidas.</td></tr></tbody></table></div>
+---
+
+<h2 class="title-h2">6. Arquitetura de Infraestrutura Completa (Docker, K8s, CI/CD & Observabilidade)</h2>
+
+<h3 class="title-h3">6.1 Topologia de Ambientes</h3>
+
+<div class="code-block"><div class="code-header">MERMAID</div><pre><code>graph TD
+    subgraph Internet_Publica ["Zona Pública (DMZ)"]
+        Users["Usuários / Navegadores"] --&gt; WAF["Cloud WAF / Cloudflare (DDoS &amp; SSL)"]
+        WAF --&gt; LB["Load Balancer / Nginx Reverse Proxy (HTTPS 443)"]
+    end
+
+    subgraph Cluster_K8s ["Cluster Kubernetes / Servidores de Aplicação"]
+        LB --&gt; Ingress["Ingress Controller"]
+        Ingress --&gt; WebPods["Frontend Web Pods (Nginx + React SPA)"]
+        Ingress --&gt; ApiPods["Backend API Pods (Spring Boot 3 / Java 21)"]
+        
+        ApiPods --&gt; RedisCluster[("Redis 7 (Sessões, Rate Limit &amp; Cache)")]
+        ApiPods --&gt; SMSGateway["Gateway SMS Corporativo (Zenvia / Twilio / SMPP)"]
+        ApiPods --&gt; SmtpServer["Servidor SMTP Institucional"]
+    end
+
+    subgraph Dados_Privados ["Zona de Dados (VPC Privada / Isolada)"]
+        ApiPods --&gt; PostgresPrimary[("PostgreSQL 16 Primary (Read/Write)")]
+        PostgresPrimary -. Replicação Streaming .-&gt; PostgresReplica[("PostgreSQL 16 Standby (Read-Only)")]
+        PostgresPrimary --&gt; BackupStorage[("Object Storage / S3 (Backups Criptografados)")]
+    end
+
+    subgraph Observabilidade ["Monitoramento &amp; Logs"]
+        ApiPods --&gt; Prometheus["Prometheus (Micrometer Metrics)"]
+        Prometheus --&gt; Grafana["Grafana Dashboards"]
+        ApiPods --&gt; Loki["Loki / Fluentd (Agregação de Logs)"]
+        Loki --&gt; Grafana
+    end
+</code></pre></div>
+
+<hr class="section-divider" />
+
+<h3 class="title-h3">6.2 Dockerfiles de Produção</h3>
+
+<h4 class="title-h4">Dockerfile do Back-End Java (Multi-stage Build com Eclipse Temurin 21)</h4>
+<div class="code-block"><div class="code-header">DOCKERFILE</div><pre><code># Estágio 1: Build da Aplicação
+FROM maven:3.9.6-eclipse-temurin-21-alpine AS builder
+WORKDIR /app
+COPY pom.xml .
+RUN mvn dependency:go-offline -B
+COPY src ./src
+RUN mvn clean package -DskipTests -B
+
+# Estágio 2: Imagem de Execução Mínima e Segura
+FROM eclipse-temurin:21-jre-alpine AS runner
+WORKDIR /app
+
+RUN addgroup -S appgroup &amp;&amp; adduser -S appuser -G appgroup
+USER appuser
+
+COPY --from=builder /app/target/*.jar app.jar
+
+ENV JAVA_OPTS="-XX:+UseG1GC -XX:MaxRAMPercentage=75.0 -Duser.timezone=America/Sao_Paulo"
+ENV SPRING_PROFILES_ACTIVE=prod
+
+EXPOSE 8080
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
+</code></pre></div>
+
+<h4 class="title-h4">Dockerfile do Front-End React (Build Vite + Nginx Alpine)</h4>
+<div class="code-block"><div class="code-header">DOCKERFILE</div><pre><code># Estágio 1: Build estático
+FROM node:22-alpine AS build
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+# Estágio 2: Servidor Nginx de Alta Performance
+FROM nginx:alpine
+COPY --from=build /app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
+</code></pre></div>
+
+<hr class="section-divider" />
+
+<h3 class="title-h3">6.3 Orquestração com Docker Compose (<code class="inline-code">docker-compose.yml</code>)</h3>
+
+<div class="code-block"><div class="code-header">YAML</div><pre><code>version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: tickethub-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: tickethub_db
+      POSTGRES_USER: tickethub_user
+      POSTGRES_PASSWORD: SecretDbPassword123!
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - tickethub-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tickethub_user -d tickethub_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: tickethub-redis
+    restart: unless-stopped
+    command: redis-server --requirepass SecretRedisPass123!
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - tickethub-net
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: tickethub-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/tickethub_db
+      SPRING_DATASOURCE_USERNAME: tickethub_user
+      SPRING_DATASOURCE_PASSWORD: SecretDbPassword123!
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      SPRING_DATA_REDIS_PASSWORD: SecretRedisPass123!
+      JWT_SECRET: chave-super-secreta-institucional-minimo-256-bits-ticket-hub-sistema-2026
+      JWT_EXPIRATION_MS: 3600000
+    ports:
+      - "8080:8080"
+    networks:
+      - tickethub-net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: tickethub-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+    networks:
+      - tickethub-net
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  tickethub-net:
+    driver: bridge
+</code></pre></div>
+
+<hr class="section-divider" />
+
+<h2 class="title-h2">7. Decisão de Arquitetura de Repositório: Backend Separado vs. No Mesmo Repositório</h2>
+
+<h3 class="title-h3">7.1 Comparativo Técnico</h3>
+
+<div class="table-container"><table><thead><tr><th>Critério</th><th>Repositórios Separados (Multi-repo)</th><th>Monorepo Estruturado (<code class="inline-code">/backend</code> e <code class="inline-code">/frontend</code>)</th><th>Backend embutido na pasta do Front</th></tr></thead><tbody><tr><td><strong>Adequação Institucional</strong></td><td>⭐⭐⭐⭐⭐ <strong>Altamente Recomendado</strong></td><td>⭐⭐⭐⭐ Muito Bom</td><td>❌ <strong>Anti-pattern / Inviável</strong></td></tr><tr><td><strong>Pipelines de CI/CD</strong></td><td>Isoladas e ultrarrápidas</td><td>Exige regras de <em>path filter</em></td><td>Conflituoso e lento</td></tr><tr><td><strong>Controle de Acessos</strong></td><td>Permissões granulares por time</td><td>Acesso total ao código</td><td>Sem separação de papéis</td></tr><tr><td><strong>Gerenciamento de Build</strong></td><td>Maven puro e Node puro</td><td>Raiz com orquestrador</td><td><code class="inline-code">package.json</code> misturado com <code class="inline-code">pom.xml</code></td></tr><tr><td><strong>Deploy e Versionamento</strong></td><td>Deploys desacoplados (Semantic Versioning)</td><td>Tags conjuntas</td><td>Bloqueio mútuo em releases</td></tr></tbody></table></div>
+<h3 class="title-h3">7.2 Recomendação Prática</h3>
+
+<ul><li><strong>Recomendação Principal (Padrão Corporativo/Governamental)</strong>:</li><li>- <strong>Dois repositórios Git independentes</strong>:</li><li>- <code class="inline-code">ticket-hub-frontend</code> (React + Vite + TypeScript + Tailwind)</li><li>- <code class="inline-code">ticket-hub-backend</code> (Java 21 + Spring Boot 3 + Maven)</li><li>- <strong>Vantagem</strong>: A equipe de front-end pode lançar melhorias de interface e correções visuais sem disparar a esteira do backend Java, e o backend pode aplicar patches de banco e segurança de forma independente.</li></ul>
+
+<ul><li><strong>Alternativa Válida (Monorepo Organizado)</strong>:</li><li>- Se for mantido no mesmo repositório do Git, deve-se criar <strong>pastas irmãs de primeiro nível</strong>:</li><li><div class="code-block"><div class="code-header">TEXT</div><pre><code>     ticket-hub-sistema/
+     ├── frontend/          # Todo o código React, Vite, package.json
+     ├── backend/           # Todo o código Java, Spring Boot, pom.xml
+     ├── docs/              # Especificações e PDFs de arquitetura
+     ├── docker-compose.yml # Orquestração local de todos os serviços
+     └── README.md
+     </code></pre></div></li><li>- ⚠️ <strong>Importante</strong>: <strong>Nunca crie o código Java dentro das pastas do React (<code class="inline-code">src/</code> do front)</strong>, pois isso mistura os ecossistemas, quebra ferramentas de análise estática e expõe arquivos de configuração do servidor.</li></ul>
+  </div>
+
+</body>
+</html>
