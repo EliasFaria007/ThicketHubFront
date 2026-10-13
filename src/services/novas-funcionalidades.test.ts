@@ -296,3 +296,106 @@ describe("Cliente Realtime WebSocket", () => {
     unsubMsg();
   });
 });
+
+describe("Assinatura Institucional (Estilo Outlook)", () => {
+  it("gera modelo institucional padronizado e aplica ao texto sem duplicação", async () => {
+    const { gerarAssinaturaPadrao, aplicarAssinatura, temAssinaturaNoTexto, removerAssinatura } = await import("@/lib/assinatura");
+
+    const modelo = gerarAssinaturaPadrao({
+      nome: "Carlos Menezes",
+      setor: "TI",
+      email: "carlos@instituto.gov.br",
+      telefone: "(31) 98765-4321",
+    });
+
+    expect(modelo).toContain("Atenciosamente,");
+    expect(modelo).toContain("Carlos Menezes");
+    expect(modelo).toContain("TI — Central de Atendimento");
+    expect(modelo).toContain("carlos@instituto.gov.br · (31) 98765-4321");
+
+    const textoOriginal = "Verifiquei o cabo de rede e reestabeleci o sinal.";
+    const comAssinatura = aplicarAssinatura(textoOriginal, modelo);
+
+    expect(comAssinatura).toContain(textoOriginal);
+    expect(comAssinatura).toContain("--\n" + modelo);
+    expect(temAssinaturaNoTexto(comAssinatura, modelo)).toBe(true);
+
+    // Teste de idempotência (não duplica se já tiver)
+    const idempotente = aplicarAssinatura(comAssinatura, modelo);
+    expect(idempotente).toBe(comAssinatura);
+
+    // Remoção da assinatura
+    const removido = removerAssinatura(comAssinatura, modelo);
+    expect(removido).toBe(textoOriginal);
+  });
+
+  it("permite ao usuário configurar sua assinatura e preferência no perfil", async () => {
+    definirAtorDemo(TECNICO);
+
+    const assinaturaNova = "Atenciosamente,\nTécnico Especialista\nSuporte N2";
+    const res = await chamar<User>("PUT", `/usuarios/${TECNICO.id}`, {
+      nome: TECNICO.nome,
+      assinatura: assinaturaNova,
+      incluirAssinaturaPadrao: true,
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.corpo.success).toBe(true);
+    expect(res.corpo.data.assinatura).toBe(assinaturaNova);
+    expect(res.corpo.data.incluirAssinaturaPadrao).toBe(true);
+  });
+
+  it("disponibiliza catálogo de assinaturas prontas e leitor de arquivos anexados", async () => {
+    const { MODELOS_ASSINATURAS_PRONTAS, lerArquivoAssinaturaPronta } = await import("@/lib/assinatura");
+
+    expect(MODELOS_ASSINATURAS_PRONTAS.length).toBeGreaterThanOrEqual(4);
+
+    const dados = {
+      nome: "Renata Souza",
+      setor: "Protocolo",
+      email: "renata@instituto.gov.br",
+      telefone: "(31) 3333-4444",
+    };
+
+    // Gera cada um dos modelos prontos
+    for (const mod of MODELOS_ASSINATURAS_PRONTAS) {
+      const resultado = mod.gerar(dados);
+      expect(resultado).toContain("Renata Souza");
+      expect(resultado.length).toBeGreaterThan(20);
+    }
+
+    // Leitor de arquivo de assinatura de texto (.txt)
+    const blobTxt = new Blob(["Atenciosamente,\nAssinatura do Arquivo de Texto"], { type: "text/plain" });
+    const fileTxt = new File([blobTxt], "assinatura.txt", { type: "text/plain" });
+    const resTxt = await lerArquivoAssinaturaPronta(fileTxt);
+    expect(resTxt.tipo).toBe("texto");
+    expect(resTxt.nome).toBe("assinatura.txt");
+    expect(resTxt.conteudo).toContain("Assinatura do Arquivo de Texto");
+
+    // Leitor de arquivo HTML (.html)
+    const blobHtml = new Blob(["<p>Atenciosamente,<br/><strong>Assinatura em HTML</strong></p>"], { type: "text/html" });
+    const fileHtml = new File([blobHtml], "assinatura.html", { type: "text/html" });
+    const resHtml = await lerArquivoAssinaturaPronta(fileHtml);
+    expect(resHtml.tipo).toBe("texto");
+    expect(resHtml.conteudo).toContain("Assinatura em HTML");
+    expect(resHtml.conteudo).not.toContain("<p>");
+
+    // Leitor de arquivo de imagem gráfica (.png)
+    const blobPng = new Blob(["fake-image-bytes"], { type: "image/png" });
+    const filePng = new File([blobPng], "assinatura-grafica.png", { type: "image/png" });
+    const resPng = await lerArquivoAssinaturaPronta(filePng);
+    expect(resPng.tipo).toBe("imagem");
+    expect(resPng.nome).toBe("assinatura-grafica.png");
+    expect(resPng.conteudo.startsWith("data:")).toBe(true);
+
+    // Persistência combinada e extração limpa de imagem de assinatura
+    const { extrairTextoEImagemAssinatura, montarAssinaturaCompleta } = await import("@/lib/assinatura");
+    const combinada = montarAssinaturaCompleta("Atenciosamente,\nRenata", resPng.conteudo);
+    expect(combinada).toContain("Atenciosamente,\nRenata");
+    expect(combinada).toContain("[ASSINATURA_IMAGEM:data:");
+
+    const extraida = extrairTextoEImagemAssinatura(combinada);
+    expect(extraida.texto).toBe("Atenciosamente,\nRenata");
+    expect(extraida.imagem).toBe(resPng.conteudo);
+  });
+});

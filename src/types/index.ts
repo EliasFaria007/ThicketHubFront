@@ -52,7 +52,9 @@ export interface User {
   termosAceitosEm?: string | null;
   termosVersao?: string | null;
   primeiroAcessoConcluido?: boolean;
-  senhaTemporaria?: string | null;
+  senhaTemporaria?: string | null | undefined;
+  assinatura?: string | null | undefined;
+  incluirAssinaturaPadrao?: boolean | undefined;
 }
 
 /** Item do catálogo de serviços — criado e mantido apenas pelo superusuário. */
@@ -202,6 +204,10 @@ export interface LoginResponse {
   setor: string;
   primeiroAcessoConcluido: boolean;
   setoresLiberados: string[];
+  assinatura?: string | null | undefined;
+  incluirAssinaturaPadrao?: boolean | undefined;
+  termosVersao?: string | null | undefined;
+  termosAceitosEm?: string | null | undefined;
 }
 
 /** Notificação interna exibida no sino da barra superior. */
@@ -348,5 +354,3 @@ export interface ResultadoTesteEmail {
   sucesso: boolean;
   mensagem: string;
 }
-
-

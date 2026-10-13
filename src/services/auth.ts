@@ -22,6 +22,10 @@ export function authResponseParaUser(data: LoginResponse): User {
     ativo: true,
     criadoEm: new Date().toISOString(),
     primeiroAcessoConcluido: data.primeiroAcessoConcluido,
+    termosVersao: data.termosVersao ?? (data.primeiroAcessoConcluido ? "1.0" : null),
+    termosAceitosEm: data.termosAceitosEm ?? (data.primeiroAcessoConcluido ? new Date().toISOString() : null),
+    assinatura: data.assinatura,
+    incluirAssinaturaPadrao: data.incluirAssinaturaPadrao ?? true,
   };
 }
 

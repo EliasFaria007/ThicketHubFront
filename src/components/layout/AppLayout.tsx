@@ -1,5 +1,6 @@
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useRouter } from "@tanstack/react-router";
+import { obterUsuarioLogado } from "@/services/usuarios";
 import {
   BookMarked,
   Building2,
@@ -53,9 +54,30 @@ export function AppLayout({
 }) {
   const [menuAberto, setMenuAberto] = useState(false);
   const user = useAuthStore((s) => s.user);
+  const token = useAuthStore((s) => s.token);
+  const atualizarUsuario = useAuthStore((s) => s.atualizarUsuario);
   const sair = useAuthStore((s) => s.sair);
   const router = useRouter();
   const queryClient = useQueryClient();
+
+  // Garante que a assinatura e preferências do perfil fiquem sempre atualizadas do banco de dados
+  useQuery({
+    queryKey: ["usuario-logado-atual", user?.id],
+    queryFn: async () => {
+      try {
+        const u = await obterUsuarioLogado();
+        if (u) {
+          atualizarUsuario(u);
+          return u;
+        }
+      } catch {
+        // Silencioso em caso de token expirando
+      }
+      return null;
+    },
+    enabled: Boolean(token && user?.id),
+    staleTime: 15_000,
+  });
 
   const itens = NAV.filter((item) =>
     item.to === "/usuarios"

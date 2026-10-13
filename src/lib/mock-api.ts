@@ -256,6 +256,8 @@ const usuarios: User[] = [
     termosAceitosEm: iso(-279),
     termosVersao: "1.0",
     primeiroAcessoConcluido: true,
+    assinatura: "Atenciosamente,\nCarlos Menezes\nTI — Central de Atendimento\ntecnico@instituto.gov.br · (31) 97777-2222",
+    incluirAssinaturaPadrao: true,
   },
   {
     id: "u3",
@@ -1272,6 +1274,15 @@ const rotas: Rota[] = [
   // Usuários
   {
     metodo: "GET",
+    padrao: /^\/usuarios\/me$/,
+    responder: () => {
+      const u = atorAtual();
+      const user = usuarios.find((item) => String(item.id) === String(u.id)) ?? u;
+      return ok(user);
+    },
+  },
+  {
+    metodo: "GET",
     padrao: /^\/usuarios$/,
     responder: ({ query }) => {
       const q = (query.get("q") ?? "").toLowerCase();
@@ -1439,18 +1450,30 @@ const rotas: Rota[] = [
     padrao: /^\/usuarios\/([\w-]+)$/,
     responder: ({ params, body }) => {
       const ap = atorAtual();
-      if (ap.papel !== "admin" && !ehSuper(ap)) return erro(403, "Edição de usuários restrita à administração.");
+      const ehMesmo = String(ap.id) === String(params[0]);
+      if (ap.papel !== "admin" && !ehSuper(ap) && !ehMesmo) {
+        return erro(403, "Edição de usuários restrita à administração.");
+      }
       const user = usuarios.find((u) => u.id === params[0]);
       if (!user) return erro(404, "Usuário não encontrado.");
       if (user.papel === "superusuario" && !ehSuper(ap)) {
         return erro(403, "O perfil superusuário só pode ser editado pelo próprio superusuário.");
       }
       if (typeof body["nome"] === "string") user.nome = body["nome"];
-      if (typeof body["email"] === "string") user.email = body["email"];
+      if (typeof body["email"] === "string" && (ap.papel === "admin" || ehSuper(ap))) user.email = body["email"];
       if (typeof body["telefone"] === "string") user.telefone = body["telefone"];
       if (typeof body["localidade"] === "string") user.localidade = body["localidade"];
-      if (typeof body["setor"] === "string") user.setor = body["setor"];
+      if (typeof body["setor"] === "string" && (ap.papel === "admin" || ehSuper(ap))) user.setor = body["setor"];
+
+      if ("assinatura" in body) {
+        user.assinatura = typeof body["assinatura"] === "string" ? body["assinatura"] : null;
+      }
+      if (typeof body["incluirAssinaturaPadrao"] === "boolean") {
+        user.incluirAssinaturaPadrao = body["incluirAssinaturaPadrao"];
+      }
+
       if (typeof body["papel"] === "string") {
+        if (!ehSuper(ap) && ap.papel !== "admin") return erro(403, "Apenas administradores alteram perfil de acesso.");
         if (body["papel"] === "superusuario" && !ehSuper(ap)) return erro(403, "Ação exclusiva do superusuário.");
         user.papel = body["papel"] as User["papel"];
       }
@@ -1471,8 +1494,12 @@ const rotas: Rota[] = [
           registrarAuditoria("filas.revogadas", `${user.nome}: filas revogadas — ${revogadas.join(", ")}`);
         }
       }
-      if (typeof body["podeCadastrarUsuarios"] === "boolean") user.podeCadastrarUsuarios = body["podeCadastrarUsuarios"];
-      if (typeof body["ativo"] === "boolean") user.ativo = body["ativo"];
+      if (typeof body["podeCadastrarUsuarios"] === "boolean" && (ap.papel === "admin" || ehSuper(ap))) {
+        user.podeCadastrarUsuarios = body["podeCadastrarUsuarios"];
+      }
+      if (typeof body["ativo"] === "boolean" && (ap.papel === "admin" || ehSuper(ap))) {
+        user.ativo = body["ativo"];
+      }
       registrarAuditoria("usuario.editado", `Cadastro de ${user.nome} atualizado`);
 
       if (ator?.id === user.id) ator = user;

@@ -1,10 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, Download, Hand, ImageIcon, ImagePlus, Link2, Loader2, Printer, RotateCcw, Save, Send, Share2, Star, Trash2, Undo2 } from "lucide-react";
+import { ArrowLeft, Download, Hand, ImageIcon, ImagePlus, Link2, Loader2, PenLine, Printer, RotateCcw, Save, Send, Share2, Star, Trash2, Undo2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { BotaoAssinaturasProntas } from "@/components/chamados/BotaoAssinaturasProntas";
 import { PrioridadeBadge, SlaBadge, StatusBadge } from "@/components/chamados/StatusBadge";
+import { TextoFormatadoComAssinatura } from "@/components/chamados/TextoFormatadoComAssinatura";
 import { MensagemErro } from "@/components/comum/MensagemErro";
 import { SkeletonDetalhe } from "@/components/comum/Skeletons";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -14,6 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { aplicarAssinatura } from "@/lib/assinatura";
 import { arquivoParaAnexo, baixarAnexo, formatarTamanho } from "@/lib/arquivos";
 import { PAPEL_LABEL, SETORES, STATUS_LABEL, STATUS_OPCOES } from "@/lib/dominio";
 import { dataHora, desdeAgora, iniciais } from "@/lib/format";
@@ -80,6 +83,13 @@ function DetalheChamadoPage() {
   const [salvandoImagens, setSalvandoImagens] = useState(false);
   const [imagemEmVisualizacao, setImagemEmVisualizacao] = useState<Anexo | null>(null);
   const imagensInputRef = useRef<HTMLInputElement>(null);
+
+  // Pré-preenche a assinatura no campo de atendimento quando a inclusão automática estiver ativada
+  useEffect(() => {
+    if (user?.assinatura && user?.incluirAssinaturaPadrao !== false) {
+      setOQueFoiFeito((prev) => (prev ? prev : aplicarAssinatura("", user.assinatura)));
+    }
+  }, [user]);
 
   const { data: chamado, isPending, isError, error } = useQuery({
     queryKey: ["chamado", id],
@@ -152,7 +162,10 @@ function DetalheChamadoPage() {
 
       const payload: { status?: StatusChamado; oQueFoiFeito?: string; anexos?: Anexo[] } = {};
       if (novoStatus && novoStatus !== chamado?.status) payload.status = statusFinal;
-      const textoFinal = oQueFoiFeito.trim() || chamado?.oQueFoiFeito || "";
+      let textoFinal = oQueFoiFeito.trim() || chamado?.oQueFoiFeito || "";
+      if (textoFinal && user?.assinatura && user?.incluirAssinaturaPadrao !== false) {
+        textoFinal = aplicarAssinatura(textoFinal, user.assinatura);
+      }
       if (textoFinal) payload.oQueFoiFeito = textoFinal;
       // SEMPRE envia todos os anexos para manter preservadas todas as imagens
       payload.anexos = todosAnexos;
@@ -180,7 +193,13 @@ function DetalheChamadoPage() {
   }
 
   const comentario = useMutation({
-    mutationFn: () => comentarChamado(id, { mensagem: mensagem.trim(), interno }),
+    mutationFn: () => {
+      let textoComentario = mensagem.trim();
+      if (!interno && user?.assinatura && user?.incluirAssinaturaPadrao !== false) {
+        textoComentario = aplicarAssinatura(textoComentario, user.assinatura);
+      }
+      return comentarChamado(id, { mensagem: textoComentario, interno });
+    },
     onSuccess: () => {
       setMensagem("");
       setInterno(false);
@@ -311,15 +330,17 @@ function DetalheChamadoPage() {
               <SlaBadge chamado={chamado} />
               <span className="text-xs text-muted-foreground">{textoSeguro(chamado.servicoNome, 60)}</span>
             </div>
-            <p className="mt-4 whitespace-pre-line text-sm leading-relaxed text-foreground">
-              {textoSeguro(chamado.descricao, 2000)}
-            </p>
+            <TextoFormatadoComAssinatura
+              conteudo={chamado.descricao}
+              className="mt-4 text-sm leading-relaxed text-foreground"
+            />
             {chamado.oQueFoiFeito && (
               <div className="mt-4 rounded-lg border border-border bg-muted/50 p-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">O que foi feito</p>
-                <p className="mt-1 whitespace-pre-line text-sm text-foreground">
-                  {textoSeguro(chamado.oQueFoiFeito, 2000)}
-                </p>
+                <TextoFormatadoComAssinatura
+                  conteudo={chamado.oQueFoiFeito}
+                  className="mt-1 text-sm text-foreground"
+                />
               </div>
             )}
 
@@ -395,7 +416,14 @@ function DetalheChamadoPage() {
             <section className="surface-card space-y-4 p-5" aria-label="Atendimento">
               <h2 className="text-sm font-semibold text-foreground">Registrar atendimento</h2>
               <div className="space-y-1.5">
-                <Label htmlFor="oQueFoiFeito">O que foi feito</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="oQueFoiFeito">O que foi feito</Label>
+                  <BotaoAssinaturasProntas
+                    usuario={user}
+                    label="Assinaturas prontas"
+                    onInserir={(texto) => setOQueFoiFeito((prev) => aplicarAssinatura(prev, texto))}
+                  />
+                </div>
                 <Textarea
                   id="oQueFoiFeito"
                   rows={3}
@@ -612,9 +640,10 @@ function DetalheChamadoPage() {
                         <span className="ml-2 rounded bg-warning-soft px-1.5 py-0.5 text-xs text-warning">interno</span>
                       )}
                     </p>
-                    <p className="mt-1 whitespace-pre-line text-sm text-muted-foreground">
-                      {textoSeguro(c.mensagem, 2000)}
-                    </p>
+                    <TextoFormatadoComAssinatura
+                      conteudo={c.mensagem}
+                      className="mt-1 text-sm text-muted-foreground"
+                    />
                   </div>
                 </li>
               ))}
@@ -632,7 +661,16 @@ function DetalheChamadoPage() {
                   comentario.mutate();
                 }}
               >
-                <Label htmlFor="mensagem">Novo comentário</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="mensagem">Novo comentário</Label>
+                  {!interno && (
+                    <BotaoAssinaturasProntas
+                      usuario={user}
+                      label="Assinaturas prontas"
+                      onInserir={(texto) => setMensagem((prev) => aplicarAssinatura(prev, texto))}
+                    />
+                  )}
+                </div>
                 <Textarea
                   id="mensagem"
                   rows={3}

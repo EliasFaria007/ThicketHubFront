@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import { ArrowLeft, BookOpen, CheckCircle, Download, ExternalLink, FileText, Lightbulb, Loader2, PlusCircle, X } from "lucide-react";
-import { useState } from "react";
+import { ArrowLeft, BookOpen, CheckCircle, Download, ExternalLink, FileText, Lightbulb, Loader2, PenLine, PlusCircle, X } from "lucide-react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { BotaoAssinaturasProntas } from "@/components/chamados/BotaoAssinaturasProntas";
 import { PrioridadeBadge } from "@/components/chamados/StatusBadge";
 import { MensagemErro } from "@/components/comum/MensagemErro";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -14,10 +15,12 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { aplicarAssinatura } from "@/lib/assinatura";
 import { horasLegivel } from "@/lib/sla";
 import { criarChamado } from "@/services/chamados";
 import { listarServicos } from "@/services/catalogo";
 import { avaliarArtigo, listarArtigos } from "@/services/base-conhecimento";
+import { useAuthStore } from "@/stores/auth";
 import type { ArtigoBaseConhecimento } from "@/types";
 
 export const Route = createFileRoute("/chamados/novo")({
@@ -50,9 +53,22 @@ const schema = z.object({
 function NovoChamadoPage() {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const user = useAuthStore((s) => s.user);
   const [valores, setValores] = useState({ titulo: "", servicoId: "", descricao: "" });
   const [erros, setErros] = useState<Record<string, string | undefined>>({});
   const [artigoVisualizando, setArtigoVisualizando] = useState<ArtigoBaseConhecimento | null>(null);
+
+  // Pré-preenche a assinatura no campo de descrição se configurado para incluir automaticamente
+  useEffect(() => {
+    if (user?.assinatura && user?.incluirAssinaturaPadrao !== false) {
+      setValores((prev) => {
+        if (!prev.descricao) {
+          return { ...prev, descricao: aplicarAssinatura("", user.assinatura) };
+        }
+        return prev;
+      });
+    }
+  }, [user]);
 
   const servicos = useQuery({ queryKey: ["servicos"], queryFn: () => listarServicos(), staleTime: 300_000 });
   const servico = (servicos.data ?? []).find((s) => String(s.id) === String(valores.servicoId));
@@ -91,7 +107,11 @@ function NovoChamadoPage() {
       return;
     }
     setErros({});
-    mutation.mutate(resultado.data);
+    const dadosEnvio = { ...resultado.data };
+    if (user?.assinatura && user?.incluirAssinaturaPadrao !== false) {
+      dadosEnvio.descricao = aplicarAssinatura(dadosEnvio.descricao, user.assinatura);
+    }
+    mutation.mutate(dadosEnvio);
   }
 
   return (
@@ -185,7 +205,19 @@ function NovoChamadoPage() {
         )}
 
         <div className="space-y-1.5">
-          <Label htmlFor="descricao">Descrição detalhada</Label>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="descricao">Descrição detalhada</Label>
+            <BotaoAssinaturasProntas
+              usuario={user}
+              label="Assinaturas prontas"
+              onInserir={(texto) =>
+                setValores((prev) => ({
+                  ...prev,
+                  descricao: aplicarAssinatura(prev.descricao, texto),
+                }))
+              }
+            />
+          </div>
           <Textarea
             id="descricao"
             rows={6}

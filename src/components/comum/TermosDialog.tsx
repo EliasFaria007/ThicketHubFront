@@ -4,32 +4,41 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { aceitarTermos } from "@/services/usuarios";
 import { useAuthStore } from "@/stores/auth";
 import { TERMOS_VERSAO } from "@/types";
 
-/**
- * Aceite obrigatório dos termos de uso e privacidade (LGPD).
- *
- * O back-end Java não possui endpoint dedicado para registro de aceite de termos,
- * portanto o aceite é registrado localmente no store de autenticação com a data/hora atual.
- * O campo `termosVersao` e `termosAceitosEm` são mantidos apenas no estado do cliente.
- */
 export function TermosDialog() {
   const user = useAuthStore((s) => s.user);
   const atualizarUsuario = useAuthStore((s) => s.atualizarUsuario);
   const [marcado, setMarcado] = useState(false);
   const [aceitando, setAceitando] = useState(false);
 
-  const aberto = Boolean(user) && user?.termosVersao !== TERMOS_VERSAO;
+  const jaAceitouLocal =
+    typeof window !== "undefined" && user?.id
+      ? window.localStorage.getItem(`termos_aceitos_${user.id}`) === TERMOS_VERSAO
+      : false;
 
-  function aceitar() {
+  // Os termos devem aparecer apenas no primeiro login e nunca mais após o aceite
+  const jaConcluido = user?.primeiroAcessoConcluido === true || user?.termosVersao === TERMOS_VERSAO || jaAceitouLocal;
+  const aberto = Boolean(user) && !jaConcluido;
+
+  async function aceitar() {
     if (!user || !marcado) return;
     setAceitando(true);
-    // Registra o aceite localmente — o backend Java não expõe endpoint para isso
+    try {
+      await aceitarTermos(TERMOS_VERSAO);
+    } catch {
+      // Continua se offline ou demo
+    }
+    if (typeof window !== "undefined" && user.id) {
+      window.localStorage.setItem(`termos_aceitos_${user.id}`, TERMOS_VERSAO);
+    }
     atualizarUsuario({
       ...user,
       termosVersao: TERMOS_VERSAO,
       termosAceitosEm: new Date().toISOString(),
+      primeiroAcessoConcluido: true,
     });
     toast.success("Termos aceitos", { description: "Bom atendimento!" });
     setAceitando(false);

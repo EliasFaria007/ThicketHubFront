@@ -36,8 +36,29 @@ export const useAuthStore = create<AuthState>()(
       entrar: (payload) => {
         // Formato Java: {accessToken, refreshToken, id, nome, email, papel, setor, ...}
         if ("accessToken" in payload) {
-          const { accessToken, refreshToken, id, nome, email, papel, setor, setoresLiberados, primeiroAcessoConcluido } =
-            payload as LoginResponse;
+          const {
+            accessToken,
+            refreshToken,
+            id,
+            nome,
+            email,
+            papel,
+            setor,
+            setoresLiberados,
+            primeiroAcessoConcluido,
+            assinatura,
+            incluirAssinaturaPadrao,
+            termosVersao,
+            termosAceitosEm,
+          } = payload as LoginResponse;
+          const jaAceitouLocal =
+            typeof window !== "undefined" && id
+              ? window.localStorage.getItem(`termos_aceitos_${id}`)
+              : null;
+          const concluiuPrimeiro = primeiroAcessoConcluido ?? true;
+          const versaoTermos =
+            termosVersao ??
+            (jaAceitouLocal === "1.0" || concluiuPrimeiro ? "1.0" : null);
           const user: User = {
             id,
             nome,
@@ -48,9 +69,13 @@ export const useAuthStore = create<AuthState>()(
             podeCadastrarUsuarios: false,
             ativo: true,
             criadoEm: new Date().toISOString(),
-            primeiroAcessoConcluido: primeiroAcessoConcluido ?? true,
-            termosAceitosEm: new Date().toISOString(),
-            termosVersao: "1.0",
+            primeiroAcessoConcluido: concluiuPrimeiro,
+            termosAceitosEm:
+              termosAceitosEm ??
+              (versaoTermos ? new Date().toISOString() : null),
+            termosVersao: versaoTermos,
+            assinatura: assinatura ?? null,
+            incluirAssinaturaPadrao: incluirAssinaturaPadrao ?? true,
           };
           set({ token: accessToken, refreshToken, user });
         } else {
@@ -60,7 +85,39 @@ export const useAuthStore = create<AuthState>()(
         }
       },
       atualizarTokens: ({ token, refreshToken }) => set({ token, refreshToken }),
-      atualizarUsuario: (user) => set({ user }),
+      atualizarUsuario: (atualizado) =>
+        set((state) => {
+          if (!state.user) return { user: atualizado };
+          const jaAceitouLocal =
+            typeof window !== "undefined" && (atualizado.id || state.user.id)
+              ? window.localStorage.getItem(`termos_aceitos_${atualizado.id ?? state.user.id}`)
+              : null;
+          const versaoTermos =
+            atualizado.termosVersao ??
+            state.user.termosVersao ??
+            (jaAceitouLocal === "1.0" || state.user.primeiroAcessoConcluido ? "1.0" : null);
+          return {
+            user: {
+              ...state.user,
+              ...atualizado,
+              termosVersao: versaoTermos,
+              termosAceitosEm:
+                atualizado.termosAceitosEm ??
+                state.user.termosAceitosEm ??
+                (versaoTermos ? new Date().toISOString() : null),
+              primeiroAcessoConcluido:
+                atualizado.primeiroAcessoConcluido ?? state.user.primeiroAcessoConcluido,
+              assinatura:
+                atualizado.assinatura !== undefined
+                  ? atualizado.assinatura
+                  : state.user.assinatura,
+              incluirAssinaturaPadrao:
+                atualizado.incluirAssinaturaPadrao !== undefined
+                  ? atualizado.incluirAssinaturaPadrao
+                  : state.user.incluirAssinaturaPadrao,
+            },
+          };
+        }),
       sair: () => set({ token: null, refreshToken: null, user: null }),
     }),
     {

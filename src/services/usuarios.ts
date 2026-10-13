@@ -42,6 +42,8 @@ export function obterMeuPerfil() {
   return apiGet<User>("/usuarios/me");
 }
 
+export const obterUsuarioLogado = obterMeuPerfil;
+
 // ---------------------------------------------------------------------------
 // Criação e Atualização
 // ---------------------------------------------------------------------------
@@ -56,6 +58,8 @@ export interface UsuarioPayload {
   setoresLiberados?: string[];
   podeCadastrarUsuarios?: boolean;
   senhaInicial?: string;
+  assinatura?: string | null | undefined;
+  incluirAssinaturaPadrao?: boolean | undefined;
 }
 
 export function criarUsuario(payload: UsuarioPayload) {
@@ -72,6 +76,26 @@ export function atualizarUsuario(
   return apiPut<User>(`/usuarios/${id}`, {
     ...payload,
     papel: payload.papel ? payload.papel.toUpperCase() : undefined,
+  });
+}
+
+/**
+ * Salva a assinatura e preferência de inclusão no corpo dos chamados.
+ */
+export function salvarAssinaturaUsuario(
+  id: string | number,
+  payload: {
+    assinatura: string | null;
+    incluirAssinaturaPadrao: boolean;
+    nome?: string;
+    email?: string;
+  },
+) {
+  return apiPut<User>(`/usuarios/${id}`, {
+    assinatura: payload.assinatura,
+    incluirAssinaturaPadrao: payload.incluirAssinaturaPadrao,
+    ...(payload.nome ? { nome: payload.nome } : {}),
+    ...(payload.email ? { email: payload.email } : {}),
   });
 }
 

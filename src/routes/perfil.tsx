@@ -3,31 +3,56 @@ import { createFileRoute } from "@tanstack/react-router";
 import {
   Building,
   CheckCircle2,
+  ChevronDown,
+  FileSignature,
+  FileUp,
   Globe,
+  ImageIcon,
   KeyRound,
   Lock,
   MapPin,
+  PenLine,
   Phone,
   Plus,
+  RotateCcw,
   ShieldCheck,
+  Sparkles,
   Trash2,
   UserRound,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { MensagemErro } from "@/components/comum/MensagemErro";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { RotaProtegida } from "@/components/layout/RotaProtegida";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  MODELOS_ASSINATURAS_PRONTAS,
+  extrairTextoEImagemAssinatura,
+  gerarAssinaturaPadrao,
+  lerArquivoAssinaturaPronta,
+  montarAssinaturaCompleta,
+} from "@/lib/assinatura";
 import { PAPEL_LABEL } from "@/lib/dominio";
 import { dataCurta, iniciais } from "@/lib/format";
 import { textoSeguro } from "@/lib/sanitize";
 import { alterarSenha, completarCadastro } from "@/services/auth";
 import { obterConfigDominios, salvarConfigDominios, type ConfigDominios } from "@/services/configuracoes";
+import { obterUsuarioLogado, salvarAssinaturaUsuario } from "@/services/usuarios";
 import { useAuthStore } from "@/stores/auth";
 
 export const Route = createFileRoute("/perfil")({
@@ -53,6 +78,24 @@ function PerfilPage() {
   const user = useAuthStore((s) => s.user);
   const atualizarUsuario = useAuthStore((s) => s.atualizarUsuario);
   const queryClient = useQueryClient();
+
+  useQuery({
+    queryKey: ["usuario-perfil-atual", user?.id],
+    queryFn: async () => {
+      try {
+        const u = await obterUsuarioLogado();
+        if (u) {
+          atualizarUsuario(u);
+          return u;
+        }
+      } catch {
+        // fallback
+      }
+      return null;
+    },
+    enabled: Boolean(user?.id),
+    staleTime: 5_000,
+  });
 
   if (!user) return null;
 
@@ -90,10 +133,14 @@ function PerfilPage() {
               <KeyRound className="size-4" />
               Alterar senha
             </TabsTrigger>
+            <TabsTrigger value="assinatura" className="gap-1.5">
+              <PenLine className="size-4" />
+              Assinatura
+            </TabsTrigger>
             {user.papel === "superusuario" && (
               <TabsTrigger value="dominios" className="gap-1.5">
                 <Globe className="size-4" />
-                Domínios Institucionais
+                Domínios
               </TabsTrigger>
             )}
           </TabsList>
@@ -127,6 +174,11 @@ function PerfilPage() {
           {/* Aba: alterar senha */}
           <TabsContent value="senha" className="mt-4">
             <AlterarSenhaForm />
+          </TabsContent>
+
+          {/* Aba: assinatura (estilo Outlook) */}
+          <TabsContent value="assinatura" className="mt-4">
+            <AssinaturaForm onAtualizado={atualizarUsuario} />
           </TabsContent>
 
           {/* Aba: domínios institucionais (apenas superusuário) */}
@@ -563,6 +615,312 @@ function DominiosInstitucionaisTab() {
           </div>
         </div>
       )}
+    </section>
+  );
+}
+
+function AssinaturaForm({
+  onAtualizado,
+}: {
+  onAtualizado: (u: import("@/types").User) => void;
+}) {
+  const user = useAuthStore((s) => s.user)!;
+  const queryClient = useQueryClient();
+  const infoInicial = extrairTextoEImagemAssinatura(user.assinatura);
+  const [assinatura, setAssinatura] = useState(infoInicial.texto);
+  const [anexoImagem, setAnexoImagem] = useState<string | null>(infoInicial.imagem);
+  const [incluirPadrao, setIncluirPadrao] = useState(user.incluirAssinaturaPadrao ?? true);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const info = extrairTextoEImagemAssinatura(user.assinatura);
+    setAssinatura(info.texto);
+    setAnexoImagem(info.imagem);
+    setIncluirPadrao(user.incluirAssinaturaPadrao ?? true);
+  }, [user]);
+
+  const salvar = useMutation({
+    mutationFn: () => {
+      const assinaturaFinal = montarAssinaturaCompleta(assinatura, anexoImagem);
+      return salvarAssinaturaUsuario(user.id, {
+        assinatura: assinaturaFinal || null,
+        incluirAssinaturaPadrao: incluirPadrao,
+        nome: user.nome,
+        email: user.email,
+      });
+    },
+    onSuccess: (atualizado) => {
+      const assinaturaFinal = montarAssinaturaCompleta(assinatura, anexoImagem);
+      const userCompleto: import("@/types").User = {
+        ...user,
+        ...atualizado,
+        assinatura: assinaturaFinal || null,
+        incluirAssinaturaPadrao: incluirPadrao,
+      };
+      onAtualizado(userCompleto);
+      void queryClient.invalidateQueries({ queryKey: ["usuario-perfil-atual"] });
+      void queryClient.invalidateQueries({ queryKey: ["usuario-logado-atual"] });
+      toast.success("Assinatura salva com sucesso!", {
+        description: incluirPadrao
+          ? "Sua assinatura será inserida automaticamente nas respostas e atendimentos aos solicitantes."
+          : "Inclusão automática desativada. Você ainda pode inseri-la manualmente via botão nos chamados.",
+      });
+    },
+    onError: (erro: Error) => toast.error("Não foi possível salvar a assinatura", { description: erro.message }),
+  });
+
+  function gerarModelo() {
+    const modelo = gerarAssinaturaPadrao({
+      nome: user.nome,
+      setor: user.setor,
+      email: user.email,
+      telefone: user.telefone,
+    });
+    setAssinatura(modelo);
+    toast.info("Modelo de assinatura institucional gerado. Personalize se desejar e clique em salvar.");
+  }
+
+  function aplicarModeloPronto(mod: (typeof MODELOS_ASSINATURAS_PRONTAS)[number]) {
+    const texto = mod.gerar({
+      nome: user.nome,
+      setor: user.setor,
+      email: user.email,
+      telefone: user.telefone,
+    });
+    setAssinatura(texto);
+    toast.success(`Modelo pronto "${mod.titulo}" aplicado com sucesso!`);
+  }
+
+  async function handleAnexoArquivo(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const res = await lerArquivoAssinaturaPronta(file);
+      if (res.tipo === "texto") {
+        setAssinatura(res.conteudo);
+        toast.success(`Assinatura importada do arquivo "${res.nome}" com sucesso!`);
+      } else {
+        setAnexoImagem(res.conteudo);
+        if (!assinatura.trim()) {
+          setAssinatura(`Atenciosamente,\n${user.nome}\n${user.setor ? `${user.setor} — ` : ""}Central de Atendimento`);
+        }
+        toast.success(`Imagem de assinatura "${res.nome}" anexada com sucesso!`);
+      }
+    } catch (err: any) {
+      toast.error("Erro ao ler arquivo da assinatura", { description: err?.message });
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  function limpar() {
+    setAssinatura("");
+    setAnexoImagem(null);
+  }
+
+  return (
+    <section className="surface-card space-y-5 p-5">
+      <div>
+        <div className="flex items-center gap-2">
+          <PenLine className="size-4 text-primary" />
+          <h3 className="text-sm font-semibold text-foreground">Configurar Assinatura (Estilo Outlook)</h3>
+        </div>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Configure sua assinatura institucional ou anexe assinaturas já prontas para serem inseridas no corpo das respostas e pareceres enviados ao solicitante.
+        </p>
+      </div>
+
+      {salvar.isError && <MensagemErro erro={salvar.error} />}
+
+      {/* Input oculto para carregar arquivo de assinatura pronta */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".txt,.html,.md,.png,.jpg,.jpeg,.webp,.pdf"
+        className="sr-only"
+        onChange={handleAnexoArquivo}
+      />
+
+      <form
+        className="space-y-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          salvar.mutate();
+        }}
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <Label htmlFor="assinatura-texto">Texto da assinatura</Label>
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+            {/* Botão para anexar arquivo de assinatura pronta */}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1.5 text-xs font-medium"
+              onClick={() => fileInputRef.current?.click()}
+              title="Carregar arquivo .txt, .html ou imagem de assinatura já pronta"
+            >
+              <FileUp className="size-3.5 text-primary" />
+              <span>Anexar assinatura pronta</span>
+            </Button>
+
+            {/* Menu de modelos de assinaturas prontas */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 gap-1 text-xs font-medium"
+                  title="Escolher entre modelos de assinaturas institucionais prontas"
+                >
+                  <Sparkles className="size-3.5 text-primary" />
+                  <span>Modelos prontos</span>
+                  <ChevronDown className="size-3 opacity-60" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64">
+                <DropdownMenuGroup>
+                  <DropdownMenuLabel className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                    Modelos pré-configurados
+                  </DropdownMenuLabel>
+                  <DropdownMenuItem
+                    className="cursor-pointer gap-2 text-xs"
+                    onClick={gerarModelo}
+                  >
+                    <FileSignature className="size-3.5 text-primary" />
+                    <span>Padrão Institucional</span>
+                  </DropdownMenuItem>
+                  {MODELOS_ASSINATURAS_PRONTAS.map((mod) => (
+                    <DropdownMenuItem
+                      key={mod.id}
+                      className="cursor-pointer flex flex-col items-start gap-0.5 text-xs py-1.5"
+                      onClick={() => aplicarModeloPronto(mod)}
+                    >
+                      <span className="font-medium text-foreground">{mod.titulo}</span>
+                      <span className="text-[10px] text-muted-foreground line-clamp-1">{mod.descricao}</span>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            {assinatura && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-8 gap-1 text-xs text-muted-foreground hover:text-destructive"
+                onClick={limpar}
+              >
+                <RotateCcw className="size-3" />
+                Limpar
+              </Button>
+            )}
+          </div>
+        </div>
+
+        <Textarea
+          id="assinatura-texto"
+          rows={5}
+          value={assinatura}
+          onChange={(e) => setAssinatura(e.target.value)}
+          placeholder={`Ex.:\nAtenciosamente,\n${user.nome}\n${user.setor} — Central de Atendimento\n${user.email}`}
+          className="font-mono text-xs sm:text-sm"
+        />
+
+        {/* Card de imagem gráfica de assinatura se tiver sido carregada */}
+        {anexoImagem && (
+          <div className="flex items-center justify-between rounded-lg border border-primary/30 bg-primary/5 p-3 text-xs">
+            <div className="flex items-center gap-3">
+              <img
+                src={anexoImagem}
+                alt="Assinatura gráfica"
+                className="h-12 w-28 rounded border border-border object-contain bg-white dark:bg-card p-0.5"
+              />
+              <div>
+                <span className="font-semibold text-foreground">Imagem de assinatura pronta</span>
+                <p className="text-[11px] text-muted-foreground">
+                  Esta imagem será exibida visualmente junto ao corpo da sua assinatura.
+                </p>
+              </div>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="h-7 text-xs text-destructive hover:bg-destructive/10"
+              onClick={() => setAnexoImagem(null)}
+            >
+              Remover imagem
+            </Button>
+          </div>
+        )}
+
+        <div className="rounded-lg border border-border bg-muted/30 p-3">
+          <label className="flex cursor-pointer items-start gap-2.5">
+            <input
+              type="checkbox"
+              checked={incluirPadrao}
+              onChange={(e) => setIncluirPadrao(e.target.checked)}
+              className="mt-0.5 size-4 accent-primary"
+            />
+            <div className="text-xs">
+              <span className="font-medium text-foreground">
+                Inserir assinatura automaticamente no corpo do texto enviado ao solicitante
+              </span>
+              <p className="mt-0.5 text-muted-foreground">
+                Ao responder chamados ou registrar o atendimento, sua assinatura será incluída no final do texto (com separador &quot;--&quot;), exatamente como no Microsoft Outlook.
+              </p>
+            </div>
+          </label>
+        </div>
+
+        {/* Pré-visualização ao vivo */}
+        <div className="space-y-2">
+          <Label className="text-xs text-muted-foreground">
+            Pré-visualização (como o solicitante visualizará o chamado):
+          </Label>
+          <div className="rounded-lg border border-border bg-card p-4 text-sm shadow-sm">
+            <div className="text-muted-foreground italic mb-3">
+              [Mensagem de atualização ou parecer do atendimento registrado pelo atendente...]
+            </div>
+            <div className="border-t border-border pt-3">
+              <div className="text-xs text-muted-foreground mb-1">--</div>
+              {assinatura.trim() || anexoImagem ? (
+                <div className="space-y-2">
+                  {assinatura.trim() && (
+                    <div className="whitespace-pre-line text-xs sm:text-sm text-foreground font-medium">
+                      {assinatura.trim()}
+                    </div>
+                  )}
+                  {anexoImagem && (
+                    <div className="pt-1">
+                      <img
+                        src={anexoImagem}
+                        alt="Assinatura gráfica"
+                        className="max-h-20 max-w-xs rounded border border-border object-contain bg-white dark:bg-card p-1 shadow-xs"
+                      />
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-xs italic text-muted-foreground">
+                  (Nenhuma assinatura configurada ainda)
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex justify-end pt-2">
+          <Button type="submit" disabled={salvar.isPending} className="gap-2">
+            <PenLine className="size-4" />
+            {salvar.isPending ? "Salvando…" : "Salvar assinatura"}
+          </Button>
+        </div>
+      </form>
     </section>
   );
 }
