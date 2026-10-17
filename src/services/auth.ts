@@ -43,6 +43,14 @@ export function login(payload: { email: string; password: string }) {
 }
 
 /**
+ * Login institucional via Microsoft (Office 365 / Entra ID).
+ * Envia o ID token ou credenciais institucionais Microsoft para autenticação e provisionamento no backend.
+ */
+export function loginMicrosoft(payload: { idToken: string; email?: string; nome?: string }) {
+  return apiPost<LoginResponse>("/auth/microsoft", payload);
+}
+
+/**
  * Renova o access token usando o refresh token armazenado.
  * O back-end retorna o mesmo `AuthResponse` plano.
  */

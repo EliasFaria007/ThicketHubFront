@@ -18,6 +18,7 @@ import type {
   Chamado,
   Comentario,
   ConfiguracaoEmail,
+  ConfiguracaoGeral,
   ConfiguracaoLdap,
   HistoricoItem,
   Metricas,
@@ -80,6 +81,16 @@ let configEmail: ConfiguracaoEmail = {
   portaImap: 993,
   usuarioImap: "chamados@instituto.gov.br",
   setorPadrao: "TI",
+};
+
+let configGeral: ConfiguracaoGeral = {
+  justificativaNotaBaixaObrigatoria: true,
+  alertaNotaBaixaAtivo: true,
+  fechamentoInatividadeAtivo: true,
+  diasInatividadeFechamento: 5,
+  webhookAtivo: false,
+  webhookUrl: "https://defensoria.webhook.office.com/webhookb2/...",
+  webhookNivelMinimo: "CRITICA",
 };
 
 let artigosBaseConhecimento: ArtigoBaseConhecimento[] = [
@@ -208,7 +219,7 @@ Coloque o cartucho usado dentro da caixa do novo para que a equipe de Infraestru
 ];
 
 
-const usuarios: User[] = [
+let usuarios: User[] = [
   {
     id: "u0",
     nome: "Root Institucional",
@@ -714,6 +725,25 @@ function relatorios(query: URLSearchParams): Relatorios {
         .filter((h) => h.tipo === "encaminhamento")
         .map((h) => ({ protocolo: c.protocolo, descricao: h.descricao, autorNome: h.autorNome, criadoEm: h.criadoEm })),
     ),
+    evolucaoMensal: [
+      { periodo: "11/2025", abertos: 14, resolvidos: 12 },
+      { periodo: "12/2025", abertos: 18, resolvidos: 16 },
+      { periodo: "01/2026", abertos: 22, resolvidos: 20 },
+      { periodo: "02/2026", abertos: 28, resolvidos: 25 },
+      { periodo: "03/2026", abertos: 35, resolvidos: 31 },
+    ],
+    mapaCalor: [
+      { diaSemana: 1, hora: 8, total: 12 },
+      { diaSemana: 1, hora: 9, total: 24 },
+      { diaSemana: 1, hora: 10, total: 31 },
+      { diaSemana: 1, hora: 14, total: 18 },
+      { diaSemana: 2, hora: 9, total: 19 },
+      { diaSemana: 2, hora: 10, total: 22 },
+      { diaSemana: 3, hora: 11, total: 15 },
+      { diaSemana: 4, hora: 15, total: 20 },
+      { diaSemana: 5, hora: 16, total: 28 },
+    ],
+    fcrTaxa: 84.5,
   };
 }
 
@@ -741,6 +771,34 @@ const rotas: Rota[] = [
         ]);
       }
       registrarAuditoria("auth.login", `Login realizado por ${user.nome}`, user);
+      return ok({ token: TOKEN_DEMO, refreshToken: REFRESH_DEMO, user });
+    },
+  },
+  {
+    metodo: "POST",
+    padrao: /^\/auth\/microsoft$/,
+    responder: ({ body }) => {
+      const email = String(body["email"] ?? body["idToken"] ?? "").toLowerCase().trim();
+      let user = usuarios.find((u) => u.email.toLowerCase() === email && u.ativo);
+      if (!user) {
+        // Se usuário não existe no mock, busca usuário padrão ou provisiona um novo
+        user = (usuarios.find((u) => u.papel === "usuario") ?? {
+          id: `usr-${Date.now()}`,
+          nome: String(body["nome"] ?? email.split("@")[0] ?? "Servidor Institucional"),
+          email: email || "servidor@instituto.gov.br",
+          papel: "usuario",
+          setor: "Geral",
+          setoresLiberados: [],
+          podeCadastrarUsuarios: false,
+          ativo: true,
+          criadoEm: new Date().toISOString(),
+          primeiroAcessoConcluido: true,
+          termosVersao: "1.0",
+          termosAceitosEm: new Date().toISOString(),
+          incluirAssinaturaPadrao: true,
+        }) as User;
+      }
+      registrarAuditoria("auth.login.microsoft", `Login institucional Microsoft realizado por ${user.nome}`, user);
       return ok({ token: TOKEN_DEMO, refreshToken: REFRESH_DEMO, user });
     },
   },
@@ -960,9 +1018,8 @@ const rotas: Rota[] = [
         if (!visivelPara(c, u)) return false;
         if (fila === "geral" && (c.tecnico !== null || ["resolvido", "fechado", "concluido", "cancelado"].includes(c.status))) return false;
         if (fila === "minha" && (c.tecnico?.id !== u.id || ["resolvido", "fechado", "concluido", "cancelado"].includes(c.status))) return false;
-        // Chamados resolvidos/fechados que o técnico atendeu
+        // Chamados resolvidos/fechados/concluidos visíveis para o usuário
         if (fila === "resolvidos") {
-          if (c.tecnico?.id !== u.id) return false;
           if (!["resolvido", "fechado", "concluido"].includes(c.status)) return false;
         }
         if (status && c.status !== status) return false;
@@ -1392,7 +1449,7 @@ const rotas: Rota[] = [
         }
 
         let papel: User["papel"] = "usuario";
-        if (papelRaw === "superusuario" || papelRaw === "super") {
+        if (papelRaw === "superusuario") {
           if (!ehSuper(u)) {
             erros.push({ linha: linhaNum, email, motivo: "Apenas superusuário pode importar contas de superusuário." });
             return;
@@ -1539,6 +1596,80 @@ const rotas: Rota[] = [
         },
         "Senha redefinida com sucesso.",
       );
+    },
+  },
+  {
+    metodo: "DELETE",
+    padrao: /^\/usuarios\/([\w-]+)$/,
+    responder: ({ params }) => {
+      const ap = atorAtual();
+      const targetId = params[0];
+      const targetUser = usuarios.find((u) => String(u.id) === String(targetId));
+      if (!targetUser) return erro(404, "Usuário não encontrado.");
+
+      if (targetUser.papel === "superusuario") {
+        return erro(400, "O superusuário não pode ser excluído do sistema.");
+      }
+
+      if (!ehSuper(ap) && ap.papel !== "admin") {
+        return erro(403, "Apenas superusuários e administradores podem excluir usuários.");
+      }
+
+      if (String(ap.id) === String(targetUser.id)) {
+        return erro(400, "Você não pode excluir sua própria conta.");
+      }
+
+      if (targetUser.papel === "admin" && !ehSuper(ap)) {
+        return erro(403, "Apenas o superusuário pode excluir outro administrador.");
+      }
+
+      usuarios = usuarios.filter((u) => String(u.id) !== String(targetId));
+      chamados.forEach((c) => {
+        if (c.tecnico && String(c.tecnico.id) === String(targetId)) {
+          c.tecnico = null;
+        }
+      });
+
+      registrarAuditoria("usuario.deletar", `${ap.nome} excluiu permanentemente o usuário ${targetUser.nome} (${targetUser.email})`, ap);
+      return ok({ mensagem: "Usuário excluído permanentemente." }, "Usuário excluído com sucesso.");
+    },
+  },
+  {
+    metodo: "PATCH",
+    padrao: /^\/usuarios\/([\w-]+)\/desativar$/,
+    responder: ({ params }) => {
+      const ap = atorAtual();
+      const targetId = params[0];
+      const targetUser = usuarios.find((u) => String(u.id) === String(targetId));
+      if (!targetUser) return erro(404, "Usuário não encontrado.");
+      if (targetUser.papel === "superusuario") {
+        return erro(400, "O superusuário não pode ser desativado.");
+      }
+      if (!ehSuper(ap) && ap.papel !== "admin") {
+        return erro(403, "Apenas superusuários e administradores podem desativar usuários.");
+      }
+      if (String(ap.id) === String(targetUser.id)) {
+        return erro(400, "Você não pode desativar sua própria conta.");
+      }
+      targetUser.ativo = false;
+      registrarAuditoria("usuario.desativar", `${ap.nome} desativou o usuário ${targetUser.nome}`, ap);
+      return ok(targetUser, "Usuário desativado com sucesso.");
+    },
+  },
+  {
+    metodo: "PATCH",
+    padrao: /^\/usuarios\/([\w-]+)\/ativar$/,
+    responder: ({ params }) => {
+      const ap = atorAtual();
+      const targetId = params[0];
+      const targetUser = usuarios.find((u) => String(u.id) === String(targetId));
+      if (!targetUser) return erro(404, "Usuário não encontrado.");
+      if (!ehSuper(ap) && ap.papel !== "admin") {
+        return erro(403, "Apenas superusuários e administradores podem ativar usuários.");
+      }
+      targetUser.ativo = true;
+      registrarAuditoria("usuario.ativar", `${ap.nome} ativou o usuário ${targetUser.nome}`, ap);
+      return ok(targetUser, "Usuário ativado com sucesso.");
     },
   },
 
@@ -1861,7 +1992,7 @@ const rotas: Rota[] = [
     responder: () => {
       const u = atorAtual();
       const papel = (u.papel || "").toLowerCase();
-      if (papel !== "admin" && papel !== "superusuario" && papel !== "super") {
+      if (papel !== "admin" && papel !== "superusuario") {
         return erro(403, "Acesso restrito à administração.");
       }
       return ok(configEmail);
@@ -1873,7 +2004,7 @@ const rotas: Rota[] = [
     responder: ({ body }) => {
       const u = atorAtual();
       const papel = (u.papel || "").toLowerCase();
-      if (papel !== "admin" && papel !== "superusuario" && papel !== "super") {
+      if (papel !== "admin" && papel !== "superusuario") {
         return erro(403, "Acesso restrito à administração.");
       }
       configEmail = { ...configEmail, ...body };
@@ -1887,13 +2018,57 @@ const rotas: Rota[] = [
     responder: ({ body }) => {
       const u = atorAtual();
       const papel = (u.papel || "").toLowerCase();
-      if (papel !== "admin" && papel !== "superusuario" && papel !== "super") {
+      if (papel !== "admin" && papel !== "superusuario") {
         return erro(403, "Acesso restrito à administração.");
       }
       const dest = String(body["destinatario"] ?? u.email);
       return ok({
         sucesso: true,
         mensagem: `E-mail de teste disparado com sucesso para ${dest}. Verifique a caixa de entrada.`,
+      });
+    },
+  },
+  // -------------------------------------------------------------------------
+  // Configurações Gerais & Automações (Satisfação, Inatividade, Webhook)
+  // -------------------------------------------------------------------------
+  {
+    metodo: "GET",
+    padrao: /^\/configuracoes\/geral$/,
+    responder: () => {
+      const u = atorAtual();
+      const papel = (u.papel || "").toLowerCase();
+      if (papel !== "admin" && papel !== "superusuario") {
+        return erro(403, "Acesso restrito à administração.");
+      }
+      return ok(configGeral);
+    },
+  },
+  {
+    metodo: "PUT",
+    padrao: /^\/configuracoes\/geral$/,
+    responder: ({ body }) => {
+      const u = atorAtual();
+      const papel = (u.papel || "").toLowerCase();
+      if (papel !== "admin" && papel !== "superusuario") {
+        return erro(403, "Acesso restrito à administração.");
+      }
+      configGeral = { ...configGeral, ...body };
+      registrarAuditoria("config.geral", `Configurações gerais atualizadas por ${u.nome}`, u);
+      return ok(configGeral, "Configurações gerais e automações salvas com sucesso.");
+    },
+  },
+  {
+    metodo: "POST",
+    padrao: /^\/configuracoes\/geral\/webhook\/testar$/,
+    responder: () => {
+      const u = atorAtual();
+      const papel = (u.papel || "").toLowerCase();
+      if (papel !== "admin" && papel !== "superusuario") {
+        return erro(403, "Acesso restrito à administração.");
+      }
+      return ok({
+        sucesso: true,
+        mensagem: "Notificação institucional de teste disparada com sucesso para o webhook configurado.",
       });
     },
   },

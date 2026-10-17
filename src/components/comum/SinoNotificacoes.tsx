@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bell, CheckCheck, Radio } from "lucide-react";
+import { Bell, CheckCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -102,7 +102,7 @@ export function SinoNotificacoes() {
           ) : (
             <ul className="divide-y divide-border">
               {itens.map((n) => (
-                <li key={n.id}>
+                <li key={n.id} className={n.lida ? "opacity-60" : ""}>
                   <Link
                     to="/chamados/$id"
                     params={{ id: n.chamadoId }}
@@ -115,7 +115,9 @@ export function SinoNotificacoes() {
                         <span className="mt-1.5 size-2 shrink-0" aria-hidden />
                       )}
                       <div className="min-w-0">
-                        <p className="truncate text-sm text-foreground">{n.titulo}</p>
+                        <p className={`truncate text-sm ${n.lida ? "text-muted-foreground" : "font-semibold text-foreground"}`}>
+                          {n.titulo}
+                        </p>
                         <p className="text-xs text-muted-foreground">
                           {n.protocolo} · {desdeAgora(n.criadoEm)}
                         </p>

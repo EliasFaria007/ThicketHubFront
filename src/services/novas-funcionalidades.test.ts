@@ -399,3 +399,68 @@ describe("Assinatura Institucional (Estilo Outlook)", () => {
     expect(extraida.imagem).toBe(resPng.conteudo);
   });
 });
+
+describe("Configurações Gerais, Satisfação e Webhooks Institucionais (Sugestões 2, 5 e 6)", () => {
+  beforeEach(() => {
+    definirAtorDemo(SUPER);
+  });
+
+  it("permite ao superusuário consultar as configurações gerais do sistema", async () => {
+    const { status, corpo } = await chamar<import("@/types").ConfiguracaoGeral>("GET", "/configuracoes/geral");
+    expect(status).toBe(200);
+    expect(corpo.success).toBe(true);
+    expect(corpo.data.justificativaNotaBaixaObrigatoria).toBe(true);
+    expect(corpo.data.alertaNotaBaixaAtivo).toBe(true);
+    expect(corpo.data.fechamentoInatividadeAtivo).toBe(true);
+    expect(corpo.data.diasInatividadeFechamento).toBe(5);
+  });
+
+  it("permite salvar alterações nas regras de inatividade, ouvidoria e webhook corporativo", async () => {
+    const novoPayload = {
+      justificativaNotaBaixaObrigatoria: true,
+      alertaNotaBaixaAtivo: true,
+      fechamentoInatividadeAtivo: true,
+      diasInatividadeFechamento: 7,
+      webhookAtivo: true,
+      webhookUrl: "https://outlook.office.com/webhook/departamento-ti",
+      webhookNivelMinimo: "ALTA",
+    };
+
+    const { status, corpo } = await chamar<import("@/types").ConfiguracaoGeral>("PUT", "/configuracoes/geral", novoPayload);
+    expect(status).toBe(200);
+    expect(corpo.success).toBe(true);
+    expect(corpo.data.diasInatividadeFechamento).toBe(7);
+    expect(corpo.data.webhookAtivo).toBe(true);
+    expect(corpo.data.webhookUrl).toBe("https://outlook.office.com/webhook/departamento-ti");
+    expect(corpo.data.webhookNivelMinimo).toBe("ALTA");
+  });
+
+  it("permite testar o envio de notificação via Webhook institucional", async () => {
+    const { status, corpo } = await chamar<{ sucesso: boolean; mensagem: string }>(
+      "POST",
+      "/configuracoes/geral/webhook/testar",
+      { webhookUrl: "https://outlook.office.com/webhook/departamento-ti" },
+    );
+    expect(status).toBe(200);
+    expect(corpo.success).toBe(true);
+    expect(corpo.data.sucesso).toBe(true);
+  });
+
+  it("bloqueia alteração das configurações gerais por usuários comuns", async () => {
+    definirAtorDemo(USUARIO);
+    const { status } = await chamar("PUT", "/configuracoes/geral", { diasInatividadeFechamento: 1 });
+    expect(status).toBe(403);
+  });
+
+  it("permite ao usuário administrador consultar relatórios com métricas de evolução mensal e distribuição de satisfação", async () => {
+    definirAtorDemo(SUPER);
+    const { status, corpo } = await chamar<import("@/types").Relatorios>("GET", "/relatorios");
+    expect(status).toBe(200);
+    expect(corpo.success).toBe(true);
+    expect(corpo.data.totalChamados).toBeGreaterThan(0);
+    expect(corpo.data.satisfacao.distribuicao).toHaveLength(5);
+    expect(Array.isArray(corpo.data.evolucaoMensal)).toBe(true);
+    expect(corpo.data.evolucaoMensal!.length).toBeGreaterThan(0);
+  });
+});
+

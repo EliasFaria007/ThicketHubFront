@@ -483,5 +483,70 @@ describe("gerenciamento de domínios institucionais e importação em lista", ()
   });
 });
 
+describe("exclusão de usuários (permissões e restrições)", () => {
+  it("impede a exclusão do superusuário por qualquer perfil", async () => {
+    definirAtorDemo(ADMIN);
+    const resAdmin = await chamar("DELETE", `/usuarios/${SUPER.id}`);
+    expect(resAdmin.status).toBe(400);
+
+    definirAtorDemo(SUPER);
+    const resSuper = await chamar("DELETE", `/usuarios/${SUPER.id}`);
+    expect(resSuper.status).toBe(400);
+  });
+
+  it("usuário comum não possui permissão para excluir usuários", async () => {
+    definirAtorDemo(USUARIO);
+    const res = await chamar("DELETE", `/usuarios/${TECNICO.id}`);
+    expect(res.status).toBe(403);
+  });
+
+  it("impede que o administrador exclua a própria conta", async () => {
+    definirAtorDemo(ADMIN);
+    const res = await chamar("DELETE", `/usuarios/${ADMIN.id}`);
+    expect(res.status).toBe(400);
+  });
+
+  it("administrador não pode excluir outro administrador", async () => {
+    definirAtorDemo(SUPER);
+    const { corpo: novoAdmin } = await chamar<User>("POST", "/usuarios", {
+      nome: "Segundo Administrador",
+      email: "admin2@instituto.gov.br",
+      papel: "admin",
+      setor: "TI",
+    });
+
+    definirAtorDemo(ADMIN);
+    const res = await chamar("DELETE", `/usuarios/${novoAdmin.data.id}`);
+    expect(res.status).toBe(403);
+  });
+
+  it("administrador pode excluir um usuário comum ou técnico", async () => {
+    definirAtorDemo(ADMIN);
+    const { corpo: novoUser } = await chamar<User>("POST", "/usuarios", {
+      nome: "Temporario Solicitante",
+      email: "temp@instituto.gov.br",
+      papel: "usuario",
+      setor: "TI",
+    });
+
+    const res = await chamar("DELETE", `/usuarios/${novoUser.data.id}`);
+    expect(res.status).toBe(200);
+  });
+
+  it("superusuário pode excluir outro administrador", async () => {
+    definirAtorDemo(SUPER);
+    const { corpo: novoAdmin } = await chamar<User>("POST", "/usuarios", {
+      nome: "Admin Removivel",
+      email: "adminrem@instituto.gov.br",
+      papel: "admin",
+      setor: "TI",
+    });
+
+    const res = await chamar("DELETE", `/usuarios/${novoAdmin.data.id}`);
+    expect(res.status).toBe(200);
+  });
+});
+
+
 
 

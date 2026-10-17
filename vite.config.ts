@@ -26,8 +26,33 @@ export default defineConfig(({ command }) => ({
       server: { entry: "server" },
     }),
     viteReact(),
-    ...(command === "build" ? [nitro({ preset: "cloudflare-module" })] : []),
+    ...(command === "build" ? [nitro({ preset: process.env.NITRO_PRESET || "vercel" })] : []),
   ],
+  build: {
+    target: "esnext",
+    cssMinify: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes("node_modules")) {
+            if (id.includes("recharts") || id.includes("d3-")) {
+              return "vendor-charts";
+            }
+            if (id.includes("lucide-react")) {
+              return "vendor-icons";
+            }
+            if (id.includes("@tanstack")) {
+              return "vendor-tanstack";
+            }
+            if (id.includes("react") || id.includes("scheduler")) {
+              return "vendor-react";
+            }
+          }
+          return undefined;
+        },
+      },
+    },
+  },
   server: {
     host: "0.0.0.0",
     port: 5173,

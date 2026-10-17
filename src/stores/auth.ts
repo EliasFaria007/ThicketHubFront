@@ -96,29 +96,33 @@ export const useAuthStore = create<AuthState>()(
             atualizado.termosVersao ??
             state.user.termosVersao ??
             (jaAceitouLocal === "1.0" || state.user.primeiroAcessoConcluido ? "1.0" : null);
-          return {
-            user: {
-              ...state.user,
-              ...atualizado,
-              termosVersao: versaoTermos,
-              termosAceitosEm:
-                atualizado.termosAceitosEm ??
-                state.user.termosAceitosEm ??
-                (versaoTermos ? new Date().toISOString() : null),
-              primeiroAcessoConcluido:
-                atualizado.primeiroAcessoConcluido ?? state.user.primeiroAcessoConcluido,
-              assinatura:
-                atualizado.assinatura !== undefined
-                  ? atualizado.assinatura
-                  : state.user.assinatura,
-              incluirAssinaturaPadrao:
-                atualizado.incluirAssinaturaPadrao !== undefined
-                  ? atualizado.incluirAssinaturaPadrao
-                  : state.user.incluirAssinaturaPadrao,
-            },
+          const novoUser: User = {
+            ...state.user,
+            ...atualizado,
+            termosVersao: versaoTermos,
+            termosAceitosEm:
+              atualizado.termosAceitosEm ??
+              state.user.termosAceitosEm ??
+              (versaoTermos ? new Date().toISOString() : null),
+            primeiroAcessoConcluido:
+              atualizado.primeiroAcessoConcluido ?? state.user.primeiroAcessoConcluido ?? false,
+            assinatura:
+              atualizado.assinatura !== undefined
+                ? atualizado.assinatura
+                : state.user.assinatura,
+            incluirAssinaturaPadrao:
+              atualizado.incluirAssinaturaPadrao !== undefined
+                ? atualizado.incluirAssinaturaPadrao
+                : state.user.incluirAssinaturaPadrao,
           };
+          return { user: novoUser };
         }),
-      sair: () => set({ token: null, refreshToken: null, user: null }),
+      sair: () => {
+        if (typeof window !== "undefined") {
+          window.sessionStorage.setItem("logout_manual", "true");
+        }
+        set({ token: null, refreshToken: null, user: null });
+      },
     }),
     {
       name: "chamados.auth",
@@ -157,28 +161,27 @@ export const PERMISSOES: Record<Papel, string[]> = {
   tecnico: BASE_TECNICO,
   admin: BASE_ADMIN,
   superusuario: [...BASE_ADMIN, "catalogo:gerenciar", "sla:configurar", "configuracoes:gerenciar"],
-  super: [...BASE_ADMIN, "catalogo:gerenciar", "sla:configurar", "configuracoes:gerenciar"],
 };
 
 /** Superusuário tem acesso irrestrito; demais perfis seguem a matriz de permissões. */
 export function podeExecutar(papel: Papel | undefined, permissao: string): boolean {
   if (!papel) return false;
   if (papel === "superusuario") return true;
-  return PERMISSOES[papel].includes(permissao);
+  return PERMISSOES[papel]?.includes(permissao) ?? false;
 }
 
-/** Cadastro de usuários: admin/super sempre; técnico apenas se liberado pelo admin. */
+/** Cadastro de usuários: admin/superusuario sempre; técnico apenas se liberado pelo admin. */
 export function podeCadastrarUsuarios(user: User | null | undefined): boolean {
   if (!user) return false;
   if (user.papel === "superusuario" || user.papel === "admin") return true;
-  return user.papel === "tecnico" && user.podeCadastrarUsuarios;
+  return user.papel === "tecnico" && Boolean(user.podeCadastrarUsuarios);
 }
 
 /** Técnico e admin só enxergam chamados das filas (setores) liberadas para eles. */
 export function podeVerSetor(user: User | null | undefined, setor: string): boolean {
   if (!user) return false;
   if (user.papel === "superusuario") return true;
-  if (user.papel === "tecnico" || user.papel === "admin") return user.setoresLiberados.includes(setor);
+  if (user.papel === "tecnico" || user.papel === "admin") return (user.setoresLiberados ?? []).includes(setor);
   return true;
 }
 
@@ -187,7 +190,7 @@ export function setoresVisiveisPara(user: User | null | undefined, setores: stri
   if (!user) return [];
   if (user.papel === "superusuario") return setores;
   if (user.papel === "tecnico" || user.papel === "admin") {
-    return setores.filter((s) => user.setoresLiberados.includes(s));
+    return setores.filter((s) => (user.setoresLiberados ?? []).includes(s));
   }
   return setores;
 }

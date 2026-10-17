@@ -15,6 +15,7 @@ interface JavaNotificacoesList {
     lida: boolean;
     mensagem: string;
     criadoEm: string;
+    protocolo?: string;
   }>;
   totalNaoLidas: number;
 }
@@ -29,7 +30,7 @@ export async function listarNotificacoes(): Promise<CaixaNotificacoes> {
         id: String(n.id),
         usuarioId: String(n.usuarioId),
         chamadoId: String(n.chamadoId),
-        protocolo: `CH-${n.chamadoId}`,
+        protocolo: n.protocolo ?? `CH-${n.chamadoId}`,
         evento: (n.tipo ? n.tipo.toLowerCase() : "status") as Notificacao["evento"],
         titulo: n.mensagem,
         lida: n.lida,
@@ -74,7 +75,11 @@ export async function marcarTodasNotificacoesLidas() {
 /** Função de conveniência para manter compatibilidade */
 export async function marcarNotificacoesLidas(chamadoId?: string) {
   try {
-    await marcarTodasNotificacoesLidas();
+    if (chamadoId) {
+      await apiPatch<void>(`/notificacoes/chamado/${chamadoId}/lidas`);
+    } else {
+      await marcarTodasNotificacoesLidas();
+    }
     return true;
   } catch {
     return apiPost<boolean>("/notificacoes/ler", chamadoId ? { chamadoId } : {});

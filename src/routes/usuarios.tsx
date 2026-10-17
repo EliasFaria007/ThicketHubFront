@@ -1,6 +1,6 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { AlertCircle, CheckCircle2, FileSpreadsheet, KeyRound, ListPlus, Search, ShieldAlert, UserPlus, Users } from "lucide-react";
+import { AlertCircle, CheckCircle2, FileSpreadsheet, KeyRound, ListPlus, Search, ShieldAlert, Trash2, UserPlus, Users } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -10,6 +10,16 @@ import { PaginacaoBarra } from "@/components/comum/Paginacao";
 import { SkeletonTabela } from "@/components/comum/Skeletons";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { RotaProtegida } from "@/components/layout/RotaProtegida";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -32,6 +42,7 @@ import {
   atualizarUsuario,
   criarUsuario,
   criarUsuariosEmLote,
+  excluirUsuario,
   listarUsuarios,
   resetarSenhaUsuario,
   type UsuarioLoteItem,
@@ -70,11 +81,13 @@ function UsuariosPage() {
 
   const podeGerenciar = podeExecutar(user?.papel, "usuarios:gerenciar");
   const podeCadastrar = podeCadastrarUsuarios(user);
+  const podeExcluir = user?.papel === "admin" || user?.papel === "superusuario";
 
   const { data, isPending, isError, error, isFetching } = useQuery({
     queryKey: ["usuarios", q, papelFiltro, page],
     queryFn: () => listarUsuarios({ q, papel: papelFiltro, page, limit: 10 }),
     placeholderData: keepPreviousData,
+    staleTime: 30_000,
     enabled: podeGerenciar || podeCadastrar,
   });
 
@@ -86,6 +99,18 @@ function UsuariosPage() {
       toast.success(atualizado.ativo ? "Usuário ativado" : "Usuário desativado");
     },
     onError: (erro: Error) => toast.error("Não foi possível atualizar", { description: erro.message }),
+  });
+
+  const [usuarioParaExcluir, setUsuarioParaExcluir] = useState<User | null>(null);
+
+  const excluir = useMutation({
+    mutationFn: (id: string | number) => excluirUsuario(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["usuarios"] });
+      toast.success("Usuário excluído permanentemente.");
+      setUsuarioParaExcluir(null);
+    },
+    onError: (erro: Error) => toast.error("Não foi possível excluir o usuário", { description: erro.message }),
   });
 
   const [senhaResetada, setSenhaResetada] = useState<{ nome: string; senha: string } | null>(null);
@@ -217,8 +242,8 @@ function UsuariosPage() {
                           {item.papel === "superusuario"
                             ? "Todas as filas"
                             : item.papel === "tecnico" || item.papel === "admin"
-                              ? item.setoresLiberados.length > 0
-                                ? item.setoresLiberados.join(", ")
+                              ? (item.setoresLiberados ?? []).length > 0
+                                ? (item.setoresLiberados ?? []).join(", ")
                                 : "Nenhuma fila liberada"
                               : "—"}
                         </td>
@@ -261,6 +286,29 @@ function UsuariosPage() {
                                 >
                                   {item.ativo ? "Desativar" : "Ativar"}
                                 </Button>
+                                {podeExcluir && item.papel !== "superusuario" && (
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                    disabled={
+                                      excluir.isPending ||
+                                      item.id === user?.id ||
+                                      (item.papel === "admin" && user?.papel !== "superusuario")
+                                    }
+                                    title={
+                                      item.id === user?.id
+                                        ? "Você não pode excluir sua própria conta"
+                                        : item.papel === "admin" && user?.papel !== "superusuario"
+                                          ? "Apenas o superusuário pode excluir outro administrador"
+                                          : "Excluir usuário permanentemente"
+                                    }
+                                    onClick={() => setUsuarioParaExcluir(item)}
+                                  >
+                                    <Trash2 className="size-3.5" />
+                                    <span className="sr-only">Excluir usuário</span>
+                                  </Button>
+                                )}
                               </>
                             ) : (
                               <span className="text-xs text-muted-foreground">Somente leitura</span>
@@ -321,6 +369,41 @@ function UsuariosPage() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+      )}
+
+      {usuarioParaExcluir && (
+        <AlertDialog open onOpenChange={(open) => !open && setUsuarioParaExcluir(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+                <AlertCircle className="size-5" />
+                Excluir usuário permanentemente
+              </AlertDialogTitle>
+              <AlertDialogDescription className="space-y-2">
+                <span>
+                  Tem certeza de que deseja excluir o usuário{" "}
+                  <strong>{usuarioParaExcluir.nome}</strong> ({usuarioParaExcluir.email})?
+                </span>
+                <span className="block text-xs text-muted-foreground">
+                  Esta ação é irreversível. O acesso ao sistema será cancelado e o cadastro do usuário será removido.
+                </span>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={excluir.isPending}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                disabled={excluir.isPending}
+                onClick={(e) => {
+                  e.preventDefault();
+                  excluir.mutate(usuarioParaExcluir.id);
+                }}
+              >
+                {excluir.isPending ? "Excluindo..." : "Sim, excluir usuário"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       )}
     </AppLayout>
   );

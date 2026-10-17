@@ -4,10 +4,12 @@ import {
   Building,
   CheckCircle2,
   ChevronDown,
+  Download,
   FileSignature,
   FileUp,
   Globe,
   ImageIcon,
+  ImagePlus,
   KeyRound,
   Lock,
   MapPin,
@@ -199,23 +201,23 @@ function ContatoForm({
   onAtualizado: (u: import("@/types").User) => void;
   queryClient: ReturnType<typeof useQueryClient>;
 }) {
-  const userAuth = useAuthStore((s) => s.user)!;
-  const [telefone, setTelefone] = useState(userAuth.telefone ?? "");
-  const [localidade, setLocalidade] = useState(userAuth.localidade ?? "");
+  const userAuth = useAuthStore((s) => s.user);
+  const [telefone, setTelefone] = useState(userAuth?.telefone ?? "");
+  const [localidade, setLocalidade] = useState(userAuth?.localidade ?? "");
   const atualizarUsuario = useAuthStore((s) => s.atualizarUsuario);
 
   useEffect(() => {
-    setTelefone(userAuth.telefone ?? "");
-    setLocalidade(userAuth.localidade ?? "");
+    setTelefone(userAuth?.telefone ?? "");
+    setLocalidade(userAuth?.localidade ?? "");
   }, [userAuth]);
 
   const salvar = useMutation({
     mutationFn: () => completarCadastro({ telefone: telefone.trim(), localidade: localidade.trim() }),
     onSuccess: (atualizado) => {
-      const userCompleto: import("@/types").User = {
+      const userCompleto = {
         ...userAuth,
         ...atualizado,
-      };
+      } as import("@/types").User;
       atualizarUsuario(userCompleto);
       onAtualizado(userCompleto);
       toast.success("Dados de contato atualizados com sucesso.");
@@ -270,7 +272,7 @@ function ContatoForm({
           </div>
         </div>
 
-        {userAuth.primeiroAcessoConcluido && (
+        {userAuth?.primeiroAcessoConcluido && (
           <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 p-3 text-xs text-green-800 dark:border-green-800 dark:bg-green-950 dark:text-green-200">
             <CheckCircle2 className="size-4 shrink-0" />
             <span>Cadastro de contato já foi concluído anteriormente.</span>
@@ -624,23 +626,25 @@ function AssinaturaForm({
 }: {
   onAtualizado: (u: import("@/types").User) => void;
 }) {
-  const user = useAuthStore((s) => s.user)!;
+  const user = useAuthStore((s) => s.user);
   const queryClient = useQueryClient();
-  const infoInicial = extrairTextoEImagemAssinatura(user.assinatura);
+  const infoInicial = extrairTextoEImagemAssinatura(user?.assinatura);
   const [assinatura, setAssinatura] = useState(infoInicial.texto);
   const [anexoImagem, setAnexoImagem] = useState<string | null>(infoInicial.imagem);
-  const [incluirPadrao, setIncluirPadrao] = useState(user.incluirAssinaturaPadrao ?? true);
+  const [anexoImagemNome, setAnexoImagemNome] = useState<string>("assinatura.png");
+  const [incluirPadrao, setIncluirPadrao] = useState(user?.incluirAssinaturaPadrao ?? true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const info = extrairTextoEImagemAssinatura(user.assinatura);
+    const info = extrairTextoEImagemAssinatura(user?.assinatura);
     setAssinatura(info.texto);
     setAnexoImagem(info.imagem);
-    setIncluirPadrao(user.incluirAssinaturaPadrao ?? true);
+    setIncluirPadrao(user?.incluirAssinaturaPadrao ?? true);
   }, [user]);
 
   const salvar = useMutation({
     mutationFn: () => {
+      if (!user) throw new Error("Usuário não autenticado");
       const assinaturaFinal = montarAssinaturaCompleta(assinatura, anexoImagem);
       return salvarAssinaturaUsuario(user.id, {
         assinatura: assinaturaFinal || null,
@@ -670,6 +674,7 @@ function AssinaturaForm({
   });
 
   function gerarModelo() {
+    if (!user) return;
     const modelo = gerarAssinaturaPadrao({
       nome: user.nome,
       setor: user.setor,
@@ -681,6 +686,7 @@ function AssinaturaForm({
   }
 
   function aplicarModeloPronto(mod: (typeof MODELOS_ASSINATURAS_PRONTAS)[number]) {
+    if (!user) return;
     const texto = mod.gerar({
       nome: user.nome,
       setor: user.setor,
@@ -696,6 +702,7 @@ function AssinaturaForm({
     if (!file) return;
 
     try {
+      setAnexoImagemNome(file.name);
       const res = await lerArquivoAssinaturaPronta(file);
       if (res.tipo === "texto") {
         setAssinatura(res.conteudo);
@@ -703,7 +710,7 @@ function AssinaturaForm({
       } else {
         setAnexoImagem(res.conteudo);
         if (!assinatura.trim()) {
-          setAssinatura(`Atenciosamente,\n${user.nome}\n${user.setor ? `${user.setor} — ` : ""}Central de Atendimento`);
+          setAssinatura(`Atenciosamente,\n${user?.nome ?? ""}\n${user?.setor ? `${user.setor} — ` : ""}Central de Atendimento`);
         }
         toast.success(`Imagem de assinatura "${res.nome}" anexada com sucesso!`);
       }
@@ -733,11 +740,11 @@ function AssinaturaForm({
 
       {salvar.isError && <MensagemErro erro={salvar.error} />}
 
-      {/* Input oculto para carregar arquivo de assinatura pronta */}
+      {/* Input oculto para carregar imagem de assinatura pronta */}
       <input
         ref={fileInputRef}
         type="file"
-        accept=".txt,.html,.md,.png,.jpg,.jpeg,.webp,.pdf"
+        accept="image/*"
         className="sr-only"
         onChange={handleAnexoArquivo}
       />
@@ -752,16 +759,16 @@ function AssinaturaForm({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Label htmlFor="assinatura-texto">Texto da assinatura</Label>
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-            {/* Botão para anexar arquivo de assinatura pronta */}
+            {/* Botão para anexar imagem de assinatura pronta (estilo Adicionar imagens do chamado) */}
             <Button
               type="button"
               variant="outline"
               size="sm"
               className="h-8 gap-1.5 text-xs font-medium"
               onClick={() => fileInputRef.current?.click()}
-              title="Carregar arquivo .txt, .html ou imagem de assinatura já pronta"
+              title="Anexar imagem de assinatura gráfica (PNG, JPG, WebP)"
             >
-              <FileUp className="size-3.5 text-primary" />
+              <ImagePlus className="size-3.5 text-primary" />
               <span>Anexar assinatura pronta</span>
             </Button>
 
@@ -826,35 +833,45 @@ function AssinaturaForm({
           rows={5}
           value={assinatura}
           onChange={(e) => setAssinatura(e.target.value)}
-          placeholder={`Ex.:\nAtenciosamente,\n${user.nome}\n${user.setor} — Central de Atendimento\n${user.email}`}
+          placeholder={`Ex.:\nAtenciosamente,\n${user?.nome ?? "Servidor"}\n${user?.setor ?? "Setor"} — Central de Atendimento\n${user?.email ?? ""}`}
           className="font-mono text-xs sm:text-sm"
         />
 
-        {/* Card de imagem gráfica de assinatura se tiver sido carregada */}
+        {/* Card de imagem gráfica de assinatura se tiver sido carregada (estilo Adicionar imagens do chamado) */}
         {anexoImagem && (
-          <div className="flex items-center justify-between rounded-lg border border-primary/30 bg-primary/5 p-3 text-xs">
-            <div className="flex items-center gap-3">
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">Imagem de assinatura pronta anexada:</Label>
+            <div className="group relative max-w-sm overflow-hidden rounded-lg border border-primary/40 bg-muted">
               <img
                 src={anexoImagem}
                 alt="Assinatura gráfica"
-                className="h-12 w-28 rounded border border-border object-contain bg-white dark:bg-card p-0.5"
+                className="h-28 w-full object-contain bg-white dark:bg-card p-2"
               />
-              <div>
-                <span className="font-semibold text-foreground">Imagem de assinatura pronta</span>
-                <p className="text-[11px] text-muted-foreground">
-                  Esta imagem será exibida visualmente junto ao corpo da sua assinatura.
-                </p>
+              <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-black/75 px-3 py-1.5 text-white">
+                <span className="max-w-[70%] truncate text-xs">{anexoImagemNome}</span>
+                <div className="flex items-center gap-1.5">
+                  <a
+                    href={anexoImagem}
+                    download={anexoImagemNome}
+                    className="grid size-6 place-items-center rounded bg-white/20 text-white hover:bg-white/40"
+                    title="Baixar imagem"
+                  >
+                    <Download className="size-3.5" />
+                  </a>
+                  <button
+                    type="button"
+                    className="grid size-6 place-items-center rounded bg-white/20 text-white hover:bg-red-500/80"
+                    title="Remover imagem da assinatura"
+                    onClick={() => {
+                      setAnexoImagem(null);
+                      toast.info("Imagem da assinatura removida.");
+                    }}
+                  >
+                    <Trash2 className="size-3.5" />
+                  </button>
+                </div>
               </div>
             </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="h-7 text-xs text-destructive hover:bg-destructive/10"
-              onClick={() => setAnexoImagem(null)}
-            >
-              Remover imagem
-            </Button>
           </div>
         )}
 

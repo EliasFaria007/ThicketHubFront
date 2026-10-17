@@ -15,7 +15,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { aplicarAssinatura } from "@/lib/assinatura";
+import { aplicarAssinatura, extrairTextoEImagemAssinatura } from "@/lib/assinatura";
 import { horasLegivel } from "@/lib/sla";
 import { criarChamado } from "@/services/chamados";
 import { listarServicos } from "@/services/catalogo";
@@ -58,15 +58,19 @@ function NovoChamadoPage() {
   const [erros, setErros] = useState<Record<string, string | undefined>>({});
   const [artigoVisualizando, setArtigoVisualizando] = useState<ArtigoBaseConhecimento | null>(null);
 
-  // Pré-preenche a assinatura no campo de descrição se configurado para incluir automaticamente
+  // Pré-preenche apenas o TEXTO da assinatura no campo de descrição se configurado para incluir automaticamente
+  // (a imagem gráfica, se houver, não é exibida no campo de texto)
   useEffect(() => {
     if (user?.assinatura && user?.incluirAssinaturaPadrao !== false) {
-      setValores((prev) => {
-        if (!prev.descricao) {
-          return { ...prev, descricao: aplicarAssinatura("", user.assinatura) };
-        }
-        return prev;
-      });
+      const { texto } = extrairTextoEImagemAssinatura(user.assinatura);
+      if (texto) {
+        setValores((prev) => {
+          if (!prev.descricao) {
+            return { ...prev, descricao: aplicarAssinatura("", texto) };
+          }
+          return prev;
+        });
+      }
     }
   }, [user]);
 
@@ -108,8 +112,12 @@ function NovoChamadoPage() {
     }
     setErros({});
     const dadosEnvio = { ...resultado.data };
+    // Aplica apenas o texto da assinatura (sem códigos de imagem base64) na descrição
     if (user?.assinatura && user?.incluirAssinaturaPadrao !== false) {
-      dadosEnvio.descricao = aplicarAssinatura(dadosEnvio.descricao, user.assinatura);
+      const { texto: textoAss } = extrairTextoEImagemAssinatura(user.assinatura);
+      if (textoAss) {
+        dadosEnvio.descricao = aplicarAssinatura(dadosEnvio.descricao, textoAss);
+      }
     }
     mutation.mutate(dadosEnvio);
   }

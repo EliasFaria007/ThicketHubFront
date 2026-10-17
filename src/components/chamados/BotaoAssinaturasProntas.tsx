@@ -14,14 +14,14 @@ import {
 } from "@/components/ui/dropdown-menu";
 import {
   MODELOS_ASSINATURAS_PRONTAS,
+  extrairTextoEImagemAssinatura,
   lerArquivoAssinaturaPronta,
-  montarAssinaturaCompleta,
   type DadosUsuarioAssinatura,
 } from "@/lib/assinatura";
 import type { User } from "@/types";
 
 interface BotaoAssinaturasProntasProps {
-  onInserir: (textoAssinatura: string) => void;
+  onInserir: (textoAssinatura: string, imagemAssinatura?: string | null) => void;
   usuario?: User | null;
   label?: string;
   className?: string;
@@ -49,9 +49,10 @@ export function BotaoAssinaturasProntas({
     try {
       const res = await lerArquivoAssinaturaPronta(file);
       if (res.tipo === "imagem") {
-        onInserir(montarAssinaturaCompleta("", res.conteudo));
+        onInserir(res.resumoTexto || "", res.conteudo);
       } else {
-        onInserir(res.conteudo);
+        const { texto, imagem } = extrairTextoEImagemAssinatura(res.conteudo);
+        onInserir(texto, imagem);
       }
       toast.success(`Assinatura do arquivo "${res.nome}" anexada ao chamado!`);
     } catch (err: any) {
@@ -66,7 +67,7 @@ export function BotaoAssinaturasProntas({
       <input
         ref={fileInputRef}
         type="file"
-        accept=".txt,.html,.md,.png,.jpg,.jpeg,.webp,.pdf"
+        accept="image/*,.txt,.html,.md,.png,.jpg,.jpeg,.webp"
         className="sr-only"
         onChange={handleArquivoSelecionado}
       />
@@ -96,7 +97,8 @@ export function BotaoAssinaturasProntas({
                 <DropdownMenuItem
                   className="cursor-pointer gap-2 text-xs"
                   onClick={() => {
-                    onInserir(usuario.assinatura!);
+                    const { texto, imagem } = extrairTextoEImagemAssinatura(usuario.assinatura);
+                    onInserir(texto, imagem);
                     toast.success("Sua assinatura padrão foi inserida no texto.");
                   }}
                 >

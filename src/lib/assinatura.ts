@@ -95,31 +95,41 @@ export function extrairTextoEImagemAssinatura(assinatura?: string | null): {
   if (!assinatura) return { texto: "", imagem: null };
   const str = String(assinatura).trim();
 
-  // 1. Tag estruturada [ASSINATURA_IMAGEM:data:image/...]
-  const matchTag = str.match(/\[ASSINATURA_IMAGEM:(data:image\/[^\]]+)\]/i);
+  // 1. Tag estruturada [ASSINATURA_IMAGEM: ...]
+  const matchTag = str.match(/\[ASSINATURA_IMAGEM:\s*([\s\S]*?)\s*\]/i);
   if (matchTag && matchTag[1]) {
-    const imagem = matchTag[1].trim();
-    const texto = str.replace(/\[ASSINATURA_IMAGEM:(data:image\/[^\]]+)\]/gi, "").trim();
+    const raw = matchTag[1].trim();
+    const imagem = raw.startsWith("data:") ? raw.replace(/[\r\n\s]+/g, "") : raw;
+    const texto = str.replace(/\[ASSINATURA_IMAGEM:\s*[\s\S]*?\s*\]/gi, "").trim();
     return { texto, imagem };
   }
 
-  // 2. Formato Markdown ![...](data:image/...)
-  const matchMd = str.match(/!\[[^\]]*\]\((data:image\/[^\)]+)\)/i);
-  if (matchMd && matchMd[1]) {
-    const imagem = matchMd[1].trim();
-    const texto = str.replace(/!\[[^\]]*\]\((data:image\/[^\)]+)\)/gi, "").trim();
+  // 2. Tag de assinatura cortada/truncada (ex: [ASSINATURA_IMAGEM:data:image/...) sem fechamento ']'
+  const matchIncompleto = str.match(/\[ASSINATURA_IMAGEM:\s*(data:image\/[a-zA-Z0-9+.\/]+;base64,[a-zA-Z0-9+\/=\s]*)/i);
+  if (matchIncompleto && matchIncompleto[1]) {
+    const imagem = matchIncompleto[1].replace(/[\r\n\s]+/g, "");
+    const texto = str.replace(/\[ASSINATURA_IMAGEM:[\s\S]*$/i, "").trim();
     return { texto, imagem };
   }
 
-  // 3. Imagem direta DataURL
+  // 3. Formato Markdown ![...](...)
+  const matchMd = str.match(/!\[[^\]]*\]\(\s*([\s\S]*?)\s*\)/i);
+  if (matchMd && matchMd[1] && matchMd[1].trim().startsWith("data:image/")) {
+    const raw = matchMd[1].trim();
+    const imagem = raw.replace(/[\r\n\s]+/g, "");
+    const texto = str.replace(/!\[[^\]]*\]\(\s*[\s\S]*?\s*\)/gi, "").trim();
+    return { texto, imagem };
+  }
+
+  // 4. Imagem direta DataURL
   if (str.startsWith("data:image/")) {
-    return { texto: "", imagem: str };
+    return { texto: "", imagem: str.replace(/[\r\n\s]+/g, "") };
   }
 
-  // 4. DataURL contida no texto sem tag
+  // 5. DataURL contida no texto sem tag
   const matchDataUrl = str.match(/(data:image\/[a-zA-Z0-9+.\/]+;base64,[a-zA-Z0-9+\/=\s]+)/i);
   if (matchDataUrl && matchDataUrl[1]) {
-    const imagem = matchDataUrl[1].trim();
+    const imagem = matchDataUrl[1].replace(/[\r\n\s]+/g, "");
     const texto = str.replace(matchDataUrl[1], "").trim();
     return { texto, imagem };
   }

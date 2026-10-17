@@ -1,4 +1,4 @@
-export type Papel = "usuario" | "tecnico" | "admin" | "superusuario" | "super";
+export type Papel = "usuario" | "tecnico" | "admin" | "superusuario";
 
 /**
  * Status do fluxo institucional conforme o back-end Java (normalizados para lowercase).
@@ -38,20 +38,20 @@ export interface User {
   id: number | string;
   nome: string;
   email: string;
-  telefone?: string | null;
-  localidade?: string | null;
+  telefone?: string | null | undefined;
+  localidade?: string | null | undefined;
   papel: Papel;
   setor: string;
   /** Setores que o técnico pode visualizar/atender (liberados pelo admin). */
   setoresLiberados: string[];
   /** Permissão de cadastro de usuários concedida ao técnico pelo admin. */
-  podeCadastrarUsuarios: boolean;
+  podeCadastrarUsuarios?: boolean | undefined;
   ativo: boolean;
   criadoEm: string;
-  criadoPorNome?: string | null;
-  termosAceitosEm?: string | null;
-  termosVersao?: string | null;
-  primeiroAcessoConcluido?: boolean;
+  criadoPorNome?: string | null | undefined;
+  termosAceitosEm?: string | null | undefined;
+  termosVersao?: string | null | undefined;
+  primeiroAcessoConcluido?: boolean | undefined;
   senhaTemporaria?: string | null | undefined;
   assinatura?: string | null | undefined;
   incluirAssinaturaPadrao?: boolean | undefined;
@@ -262,6 +262,19 @@ export interface Relatorios {
   usuarios: { cadastrados: number; ativos: number };
   satisfacao: { media: number; avaliacoes: number; distribuicao: { nota: number; total: number }[] };
   encaminhamentos: { protocolo: string; descricao: string; autorNome: string; criadoEm: string }[];
+  evolucaoMensal?: { periodo: string; abertos: number; resolvidos: number }[];
+  mapaCalor?: { diaSemana: number; hora: number; total: number }[];
+  fcrTaxa?: number;
+}
+
+export interface ConfiguracaoGeral {
+  justificativaNotaBaixaObrigatoria: boolean;
+  alertaNotaBaixaAtivo: boolean;
+  fechamentoInatividadeAtivo: boolean;
+  diasInatividadeFechamento: number;
+  webhookAtivo: boolean;
+  webhookUrl: string;
+  webhookNivelMinimo: "CRITICA" | "ALTA" | "TODAS" | string;
 }
 
 export const TERMOS_VERSAO = "1.0";

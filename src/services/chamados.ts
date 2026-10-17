@@ -8,6 +8,7 @@ import type {
   FiltrosChamados,
   Metricas,
   Paginacao,
+  Papel,
   PrioridadeChamado,
   StatusChamado,
 } from "@/types";
@@ -20,16 +21,19 @@ export type ChamadoResumo = Omit<Chamado, "comentarios" | "historico">;
 
 function adaptarComentario(com: any): Comentario {
   if (!com) return com;
+  const papelRaw = com.autorPapel ?? com.autor?.papel ?? com.usuarioPapel ?? "usuario";
+  const papel = (String(papelRaw).toLowerCase() as Papel) || "usuario";
+
   return {
     id: String(com.id),
     chamadoId: String(com.chamadoId ?? ""),
     mensagem: com.mensagem ?? "",
     interno: Boolean(com.interno ?? com.flagInterno),
     criadoEm: com.criadoEm ?? com.dataCriacao ?? com.dataHora ?? new Date().toISOString(),
-    autor: com.autor ?? {
-      id: String(com.autorId ?? com.usuarioId ?? ""),
-      nome: com.autorNome ?? com.usuarioNome ?? "Usuário",
-      papel: com.autorPapel ?? com.usuarioPapel ?? "usuario",
+    autor: {
+      id: String(com.autor?.id ?? com.autorId ?? com.usuarioId ?? ""),
+      nome: com.autor?.nome ?? com.autorNome ?? com.usuarioNome ?? "Usuário",
+      papel,
     },
   };
 }

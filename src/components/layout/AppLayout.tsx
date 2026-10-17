@@ -76,14 +76,19 @@ export function AppLayout({
       return null;
     },
     enabled: Boolean(token && user?.id),
-    staleTime: 15_000,
+    staleTime: 60_000,
   });
 
-  const itens = NAV.filter((item) =>
-    item.to === "/usuarios"
-      ? podeExecutar(user?.papel, item.permissao) || podeCadastrarUsuarios(user)
-      : podeExecutar(user?.papel, item.permissao),
-  );
+  const itens = NAV.filter((item) => {
+    // A aba "Painel" não é exibida para o perfil usuário solicitante
+    if (item.to === "/" && user?.papel === "usuario") {
+      return false;
+    }
+    if (item.to === "/usuarios") {
+      return podeExecutar(user?.papel, item.permissao) || podeCadastrarUsuarios(user);
+    }
+    return podeExecutar(user?.papel, item.permissao);
+  });
 
   function handleSair() {
     queryClient.clear();
@@ -211,6 +216,7 @@ function NavItens({
         <Link
           key={item.to}
           to={item.to}
+          preload="intent"
           onClick={onNavegar}
           activeOptions={{ exact: item.to === "/" }}
           className={cn(

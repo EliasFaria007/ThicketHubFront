@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { AlertTriangle, CheckCircle2, Clock, PlusCircle, Ticket } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Cell, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
@@ -32,10 +32,18 @@ export const Route = createFileRoute("/")({
   }),
   component: () => (
     <RotaProtegida>
-      <DashboardPage />
+      <RotaInicialPorPerfil />
     </RotaProtegida>
   ),
 });
+
+function RotaInicialPorPerfil() {
+  const papel = useAuthStore((s) => s.user?.papel);
+  if (papel === "usuario") {
+    return <Navigate to="/chamados" replace />;
+  }
+  return <DashboardPage />;
+}
 
 /** Cada status ganha a própria cor semântica nas barras do painel. */
 const COR_STATUS: Record<StatusChamado, string> = {

@@ -58,7 +58,7 @@ const ENUM_JAVA_UPPERCASE = new Set([
   // PrioridadeChamado
   "BAIXA", "MEDIA", "ALTA", "CRITICA",
   // Papel
-  "USUARIO", "TECNICO", "ADMIN", "SUPERUSUARIO", "SUPER",
+  "USUARIO", "TECNICO", "ADMIN", "SUPERUSUARIO",
   // TipoVinculo
   "RELACIONADO", "DUPLICADO", "FILHO", "PAI",
   // TipoHistorico
@@ -130,7 +130,6 @@ const ENUMS_LOWERCASE_TO_UPPERCASE: Record<string, string> = {
   tecnico: "TECNICO",
   admin: "ADMIN",
   superusuario: "SUPERUSUARIO",
-  super: "SUPER",
   // TipoVinculo
   relacionado: "RELACIONADO",
   duplicado: "DUPLICADO",
@@ -226,9 +225,21 @@ export class ApiError extends Error {
 
 function mensagemAmigavel(error: AxiosError<ApiResponse<unknown>>): ApiError {
   const status = error.response?.status;
-  const body = error.response?.data;
-  const errors = body?.errors ?? [];
-  if (body?.message) return new ApiError(body.message, errors, status);
+  const body = error.response?.data as Record<string, unknown> | null | undefined;
+
+  // Formato interno: {message, errors}
+  const msgInterno = body?.["message"] as string | undefined;
+  const errosInterno = (body?.["errors"] as string[] | undefined) ?? [];
+
+  // Formato ProblemDetail RFC-7807 retornado pelo GlobalExceptionHandler do Spring:
+  // {title, detail, erros: string[], status}
+  const detail = body?.["detail"] as string | undefined;
+  const errosProblem = (body?.["erros"] as string[] | undefined) ?? [];
+
+  const mensagem = msgInterno || detail;
+  const errors = errosInterno.length > 0 ? errosInterno : errosProblem;
+
+  if (mensagem) return new ApiError(mensagem, errors, status);
   if (errors.length > 0) return new ApiError(errors[0]!, errors, status);
   if (error.code === "ECONNABORTED") {
     return new ApiError("A requisição demorou demais. Tente novamente.", [], status);
@@ -298,13 +309,14 @@ http.interceptors.response.use(
     let apiError: ApiError;
 
     // Para erros do back-end Java que chegam com ProblemDetail (não envolvidos no ApiResponse),
-    // extraímos a mensagem do campo `detail` ou `title`.
+    // extraímos a mensagem do campo `detail` ou dos erros de validação específicos.
     if (!USANDO_DEMO && error.response?.data && typeof error.response.data === "object") {
       const raw = error.response.data as unknown as Record<string, unknown>;
       if (!("success" in raw) && !("mensagem" in raw)) {
-        const detail = (raw["detail"] ?? raw["title"] ?? null) as string | null;
+        const errosArray = (raw["erros"] as string[] | undefined) ?? [];
+        const detail = (raw["detail"] as string | undefined) ?? (errosArray.length > 0 ? errosArray.join(", ") : null) ?? (raw["title"] as string | undefined) ?? null;
         if (detail) {
-          apiError = new ApiError(detail, (raw["erros"] as string[]) ?? [], error.response.status);
+          apiError = new ApiError(detail, errosArray, error.response.status);
         } else {
           apiError = mensagemAmigavel(error);
         }

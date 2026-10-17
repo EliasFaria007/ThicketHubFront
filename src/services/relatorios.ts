@@ -20,20 +20,39 @@ export function obterRelatorioGeral() {
 }
 
 export async function obterRelatorios(filtros: FiltrosRelatorio): Promise<Relatorios> {
-  // No modo demo, o mock responde diretamente em /relatorios com a estrutura completa
-  if (USANDO_DEMO) {
-    return apiGet<Relatorios>("/relatorios", {
-      de: filtros.de || undefined,
-      ate: filtros.ate || undefined,
-      setor: filtros.setor || undefined,
-      status: filtros.status || undefined,
-      prioridade: filtros.prioridade || undefined,
-      tecnicoId: filtros.tecnicoId || undefined,
-      servicoId: filtros.servicoId || undefined,
-    });
+  const params: Record<string, string | undefined> = {
+    de: filtros.de || undefined,
+    ate: filtros.ate || undefined,
+    setor: filtros.setor || undefined,
+    status: filtros.status || undefined,
+    prioridade: filtros.prioridade || undefined,
+    tecnicoId: filtros.tecnicoId || undefined,
+    servicoId: filtros.servicoId || undefined,
+  };
+
+  try {
+    const data = await apiGet<Relatorios>("/relatorios", params);
+    if (data && typeof data === "object" && "totalChamados" in data) {
+      return {
+        totalChamados: Number(data.totalChamados || 0),
+        porSetor: data.porSetor ?? [],
+        porStatus: data.porStatus ?? [],
+        porPrioridade: data.porPrioridade ?? [],
+        porServico: data.porServico ?? [],
+        tecnicos: data.tecnicos ?? [],
+        periodo: data.periodo ?? { resolvidos: 0, cancelados: 0, reabertos: 0 },
+        tempos: data.tempos ?? { medioAtendimentoHoras: 0, medioResolucaoHoras: 0 },
+        usuarios: data.usuarios ?? { cadastrados: 0, ativos: 0 },
+        satisfacao: data.satisfacao ?? { media: 0, avaliacoes: 0, distribuicao: [] },
+        encaminhamentos: data.encaminhamentos ?? [],
+        evolucaoMensal: data.evolucaoMensal ?? [],
+      };
+    }
+  } catch (err) {
+    // Fallback silencioso para /relatorios/geral caso endpoint pleno falhe
   }
 
-  // No backend Java real, o endpoint disponível é /relatorios/geral
+  // Fallback para /relatorios/geral
   const m = await apiGet<MetricasGerais | Metricas>("/relatorios/geral");
   const total =
     "totalChamados" in m
@@ -71,5 +90,6 @@ export async function obterRelatorios(filtros: FiltrosRelatorio): Promise<Relato
     },
     satisfacao: { media: 5, avaliacoes: 0, distribuicao: [] },
     encaminhamentos: [],
+    evolucaoMensal: [],
   };
 }

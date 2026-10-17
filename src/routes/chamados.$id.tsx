@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { aplicarAssinatura } from "@/lib/assinatura";
+import { aplicarAssinatura, extrairTextoEImagemAssinatura, montarAssinaturaCompleta } from "@/lib/assinatura";
 import { arquivoParaAnexo, baixarAnexo, formatarTamanho } from "@/lib/arquivos";
 import { PAPEL_LABEL, SETORES, STATUS_LABEL, STATUS_OPCOES } from "@/lib/dominio";
 import { dataHora, desdeAgora, iniciais } from "@/lib/format";
@@ -78,22 +78,39 @@ function DetalheChamadoPage() {
   const [tipoVinculo, setTipoVinculo] = useState<"relacionado" | "duplicado">("relacionado");
   // novoStatus guarda a seleção local — só é salvo ao clicar em "Salvar"
   const [novoStatus, setNovoStatus] = useState<StatusChamado | "">("");
+  const [notaAvaliacao, setNotaAvaliacao] = useState<number | null>(null);
+  const [comentarioAvaliacao, setComentarioAvaliacao] = useState("");
   // Imagens do atendimento: múltiplas, sem limite
   const [imagensAtendimento, setImagensAtendimento] = useState<File[]>([]);
   const [salvandoImagens, setSalvandoImagens] = useState(false);
   const [imagemEmVisualizacao, setImagemEmVisualizacao] = useState<Anexo | null>(null);
   const imagensInputRef = useRef<HTMLInputElement>(null);
 
-  // Pré-preenche a assinatura no campo de atendimento quando a inclusão automática estiver ativada
+  const [assinaturaGraficaAtendimento, setAssinaturaGraficaAtendimento] = useState<string | null>(() => {
+    // Inicializa imediatamente com a imagem da assinatura do perfil (se configurado para incluir automaticamente)
+    if (user?.assinatura && user?.incluirAssinaturaPadrao !== false) {
+      return extrairTextoEImagemAssinatura(user.assinatura).imagem;
+    }
+    return null;
+  });
+
+  // Pré-preenche a assinatura (texto + imagem gráfica) quando a inclusão automática estiver ativada
   useEffect(() => {
     if (user?.assinatura && user?.incluirAssinaturaPadrao !== false) {
-      setOQueFoiFeito((prev) => (prev ? prev : aplicarAssinatura("", user.assinatura)));
+      const { texto, imagem } = extrairTextoEImagemAssinatura(user.assinatura);
+      if (texto) {
+        setOQueFoiFeito((prev) => (prev ? prev : aplicarAssinatura("", texto)));
+      }
+      if (imagem) {
+        setAssinaturaGraficaAtendimento((prev) => prev ?? imagem);
+      }
     }
   }, [user]);
 
   const { data: chamado, isPending, isError, error } = useQuery({
     queryKey: ["chamado", id],
     queryFn: () => obterChamado(id),
+    refetchInterval: 5_000, // atualiza comentários e status a cada 5s
   });
 
   // Ao visualizar o chamado, as notificações dele deixam de estar pendentes.
@@ -132,6 +149,7 @@ function DetalheChamadoPage() {
       setOQueFoiFeito("");
       setNovoStatus("");
       setImagensAtendimento([]);
+      setAssinaturaGraficaAtendimento(null);
       // Ao resolver ou cancelar, o chamado sai da fila ativa do técnico
       if (vars.status === "resolvido" || vars.status === "cancelado") {
         void queryClient.invalidateQueries({ queryKey: ["chamados", "contagem-minha"] });
@@ -160,11 +178,29 @@ function DetalheChamadoPage() {
       const anexosAtuais = chamado?.anexos ?? [];
       const todosAnexos = [...anexosAtuais, ...novosAnexos];
 
+      const { imagem: imagemAssinaturaPerfil } = extrairTextoEImagemAssinatura(user?.assinatura);
+      const imagemAss = assinaturaGraficaAtendimento || imagemAssinaturaPerfil;
+      if (imagemAss && user?.incluirAssinaturaPadrao !== false) {
+        const jaExiste = todosAnexos.some((a) => a.url === imagemAss || a.nome.toLowerCase().includes("assinatura"));
+        if (!jaExiste) {
+          todosAnexos.push({
+            id: `anx-ass-${Date.now()}`,
+            nome: `Assinatura - ${user?.nome ?? "Atendente"}.png`,
+            tamanho: Math.round(imagemAss.length * 0.75),
+            url: imagemAss,
+          });
+        }
+      }
+
       const payload: { status?: StatusChamado; oQueFoiFeito?: string; anexos?: Anexo[] } = {};
       if (novoStatus && novoStatus !== chamado?.status) payload.status = statusFinal;
       let textoFinal = oQueFoiFeito.trim() || chamado?.oQueFoiFeito || "";
       if (textoFinal && user?.assinatura && user?.incluirAssinaturaPadrao !== false) {
-        textoFinal = aplicarAssinatura(textoFinal, user.assinatura);
+        const { texto: textoAss } = extrairTextoEImagemAssinatura(user.assinatura);
+        textoFinal = aplicarAssinatura(textoFinal, textoAss);
+      }
+      if (imagemAss && textoFinal && user?.incluirAssinaturaPadrao !== false) {
+        textoFinal = montarAssinaturaCompleta(textoFinal, imagemAss);
       }
       if (textoFinal) payload.oQueFoiFeito = textoFinal;
       // SEMPRE envia todos os anexos para manter preservadas todas as imagens
@@ -196,13 +232,18 @@ function DetalheChamadoPage() {
     mutationFn: () => {
       let textoComentario = mensagem.trim();
       if (!interno && user?.assinatura && user?.incluirAssinaturaPadrao !== false) {
-        textoComentario = aplicarAssinatura(textoComentario, user.assinatura);
+        const { texto: textoAss, imagem: imagemAss } = extrairTextoEImagemAssinatura(user.assinatura);
+        textoComentario = aplicarAssinatura(textoComentario, textoAss);
+        if (imagemAss) {
+          textoComentario = montarAssinaturaCompleta(textoComentario, imagemAss);
+        }
       }
       return comentarChamado(id, { mensagem: textoComentario, interno });
     },
     onSuccess: () => {
       setMensagem("");
       setInterno(false);
+      void queryClient.invalidateQueries({ queryKey: ["chamado", id] });
       sucesso("Comentário registrado");
     },
     onError: falha,
@@ -268,8 +309,12 @@ function DetalheChamadoPage() {
   });
 
   const avaliar = useMutation({
-    mutationFn: (nota: number) => avaliarChamado(id, nota),
-    onSuccess: () => sucesso("Avaliação registrada"),
+    mutationFn: ({ nota, comentario }: { nota: number; comentario?: string | undefined }) =>
+      avaliarChamado(id, nota, comentario),
+    onSuccess: () => {
+      sucesso("Avaliação registrada com sucesso!");
+      void queryClient.invalidateQueries({ queryKey: ["chamado", id] });
+    },
     onError: falha,
   });
 
@@ -421,16 +466,47 @@ function DetalheChamadoPage() {
                   <BotaoAssinaturasProntas
                     usuario={user}
                     label="Assinaturas prontas"
-                    onInserir={(texto) => setOQueFoiFeito((prev) => aplicarAssinatura(prev, texto))}
+                    onInserir={(texto, imagem) => {
+                      setOQueFoiFeito((prev) => aplicarAssinatura(prev, texto));
+                      if (imagem) {
+                        setAssinaturaGraficaAtendimento(imagem);
+                      }
+                    }}
                   />
                 </div>
                 <Textarea
                   id="oQueFoiFeito"
-                  rows={3}
+                  rows={8}
+                  className="min-h-[180px]"
                   value={oQueFoiFeito}
                   placeholder="Descreva o procedimento realizado. Obrigatório para resolver o chamado."
                   onChange={(e) => setOQueFoiFeito(e.target.value)}
                 />
+
+                {/* Preview da assinatura gráfica configurada no perfil */}
+                {assinaturaGraficaAtendimento && (
+                  <div className="space-y-1">
+                    <p className="text-xs text-muted-foreground">
+                      Assinatura gráfica do perfil — será incluída automaticamente ao salvar:
+                    </p>
+                    <div className="group relative max-w-xs overflow-hidden rounded-lg border border-primary/30 bg-muted">
+                      <img
+                        src={assinaturaGraficaAtendimento}
+                        alt="Assinatura gráfica"
+                        className="h-16 w-full object-contain bg-white dark:bg-card p-1.5"
+                      />
+                      <button
+                        type="button"
+                        className="absolute right-1.5 top-1.5 hidden group-hover:flex size-5 items-center justify-center rounded bg-black/50 text-white hover:bg-red-500/80"
+                        title="Remover assinatura gráfica do atendimento"
+                        onClick={() => setAssinaturaGraficaAtendimento(null)}
+                      >
+                        <Trash2 className="size-3" />
+                      </button>
+                    </div>
+                  </div>
+                )}
+
               </div>
 
               {/* Status — selecionado localmente, salvo só ao clicar em Salvar */}
@@ -657,7 +733,10 @@ function DetalheChamadoPage() {
                 className="mt-4 space-y-2 border-t border-border pt-4"
                 onSubmit={(e) => {
                   e.preventDefault();
-                  if (mensagem.trim().length < 3) return;
+                  if (mensagem.trim().length < 3) {
+                    toast.error("O comentário deve ter no mínimo 3 caracteres.");
+                    return;
+                  }
                   comentario.mutate();
                 }}
               >
@@ -905,21 +984,94 @@ function DetalheChamadoPage() {
 
           {resolvido && souSolicitante && !chamado.avaliacao && (
             <section className="surface-card space-y-3 p-5" aria-label="Pesquisa de satisfação">
-              <h2 className="text-sm font-semibold text-foreground">Avalie o atendimento</h2>
-              <div className="flex gap-2">
+              <div className="flex items-center gap-2">
+                <Star className="size-4 text-warning fill-warning" />
+                <h2 className="text-sm font-semibold text-foreground">Avalie o atendimento</h2>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Sua avaliação nos ajuda a mensurar a qualidade institucional e o nível de serviço prestado.
+              </p>
+              <div className="flex items-center gap-2">
                 {[1, 2, 3, 4, 5].map((nota) => (
                   <Button
                     key={nota}
                     size="sm"
-                    variant="outline"
+                    type="button"
+                    variant={notaAvaliacao === nota ? "default" : "outline"}
+                    className={
+                      notaAvaliacao === nota
+                        ? "bg-warning text-warning-foreground hover:bg-warning/90 font-bold"
+                        : "hover:border-warning/50"
+                    }
                     aria-label={`Nota ${nota}`}
                     disabled={avaliar.isPending}
-                    onClick={() => avaliar.mutate(nota)}
+                    onClick={() => setNotaAvaliacao(nota)}
                   >
-                    <Star className="size-4" /> {nota}
+                    <Star
+                      className={`size-4 ${notaAvaliacao && notaAvaliacao >= nota ? "fill-current text-current" : ""}`}
+                    />
+                    {nota}
                   </Button>
                 ))}
               </div>
+
+              {notaAvaliacao !== null && (
+                <div className="space-y-3 pt-2">
+                  {notaAvaliacao <= 2 ? (
+                    <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-xs text-destructive">
+                      <p className="font-semibold">Justificativa obrigatória (nota {notaAvaliacao}/5):</p>
+                      <p className="mt-0.5 text-muted-foreground">
+                        Identificamos que seu atendimento foi avaliado com nota baixa. Por favor, descreva o motivo para que a gestão/ouvidoria possa auditar e tomar providências corretivas.
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Deixe um comentário opcional sobre o atendimento recebido (elogio ou sugestão):
+                    </p>
+                  )}
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="comentario-avaliacao" className="text-xs">
+                      {notaAvaliacao <= 2 ? "Motivo detalhado *" : "Comentário (opcional)"}
+                    </Label>
+                    <textarea
+                      id="comentario-avaliacao"
+                      rows={3}
+                      className="w-full rounded-md border border-input bg-background p-2.5 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      placeholder={
+                        notaAvaliacao <= 2
+                          ? "Descreva detalhadamente o motivo da insatisfação..."
+                          : "Deixe aqui seu elogio, sugestão ou observação..."
+                      }
+                      value={comentarioAvaliacao}
+                      onChange={(e) => setComentarioAvaliacao(e.target.value)}
+                    />
+                  </div>
+
+                  <Button
+                    size="sm"
+                    type="button"
+                    className="w-full"
+                    disabled={
+                      avaliar.isPending ||
+                      (notaAvaliacao <= 2 && comentarioAvaliacao.trim().length < 5)
+                    }
+                    onClick={() =>
+                      avaliar.mutate({
+                        nota: notaAvaliacao,
+                        comentario: comentarioAvaliacao.trim() || undefined,
+                      })
+                    }
+                  >
+                    {avaliar.isPending ? (
+                      <Loader2 className="size-4 animate-spin" />
+                    ) : (
+                      <Star className="size-4" />
+                    )}
+                    Confirmar e enviar avaliação
+                  </Button>
+                </div>
+              )}
             </section>
           )}
         </aside>

@@ -36,7 +36,6 @@ export const PAPEL_LABEL: Record<Papel, string> = {
   tecnico: "Técnico",
   admin: "Administrador",
   superusuario: "Superusuário",
-  super: "Superusuário",
 };
 
 export const PAPEL_OPCOES = (Object.keys(PAPEL_LABEL) as Papel[]).map((value) => ({

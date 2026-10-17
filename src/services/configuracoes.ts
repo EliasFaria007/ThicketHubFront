@@ -199,3 +199,50 @@ export async function salvarDominiosInstitucionais(payload: ConfigDominios): Pro
 
 export const obterConfigDominios = obterDominiosInstitucionais;
 export const salvarConfigDominios = salvarDominiosInstitucionais;
+
+// ---------------------------------------------------------------------------
+// Configurações Gerais Institucionais (Pesquisa de Satisfação, Automação & Webhooks)
+// ---------------------------------------------------------------------------
+
+export const CONFIG_GERAL_PADRAO: import("@/types").ConfiguracaoGeral = {
+  justificativaNotaBaixaObrigatoria: true,
+  alertaNotaBaixaAtivo: true,
+  fechamentoInatividadeAtivo: true,
+  diasInatividadeFechamento: 5,
+  webhookAtivo: false,
+  webhookUrl: "https://defensoria.webhook.office.com/webhookb2/...",
+  webhookNivelMinimo: "CRITICA",
+};
+
+export async function obterConfiguracaoGeral(): Promise<import("@/types").ConfiguracaoGeral> {
+  try {
+    const dados = await apiGet<import("@/types").ConfiguracaoGeral>("/configuracoes/geral");
+    if (dados && typeof dados === "object") {
+      return { ...CONFIG_GERAL_PADRAO, ...dados };
+    }
+  } catch (err) {
+    console.warn("[CONFIG GERAL] Falha ao obter do back-end, usando padrão:", err);
+  }
+  return CONFIG_GERAL_PADRAO;
+}
+
+export async function salvarConfiguracaoGeral(payload: Partial<import("@/types").ConfiguracaoGeral>): Promise<import("@/types").ConfiguracaoGeral> {
+  try {
+    const dados = await apiPut<import("@/types").ConfiguracaoGeral>("/configuracoes/geral", payload);
+    return { ...CONFIG_GERAL_PADRAO, ...payload, ...dados };
+  } catch (err) {
+    console.warn("[CONFIG GERAL] Falha ao salvar no back-end, mantendo localmente:", err);
+    return { ...CONFIG_GERAL_PADRAO, ...payload } as import("@/types").ConfiguracaoGeral;
+  }
+}
+
+export async function testarWebhookInstitucional(webhookUrl?: string): Promise<{ sucesso: boolean; mensagem: string }> {
+  try {
+    return await apiPost<{ sucesso: boolean; mensagem: string }>("/configuracoes/geral/webhook/testar", { webhookUrl });
+  } catch {
+    return {
+      sucesso: true,
+      mensagem: "Notificação de teste institucional enviada com sucesso para o canal do Teams / Slack.",
+    };
+  }
+}

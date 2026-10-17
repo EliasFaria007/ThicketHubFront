@@ -100,8 +100,14 @@ export function salvarAssinaturaUsuario(
 }
 
 export function desativarUsuario(id: string | number) {
+  return apiPatch<void>(`/usuarios/${id}/desativar`);
+}
+
+export function excluirUsuario(id: string | number) {
   return apiDelete<void>(`/usuarios/${id}`);
 }
+
+export const deletarUsuario = excluirUsuario;
 
 export function ativarUsuario(id: string | number) {
   return apiPatch<void>(`/usuarios/${id}/ativar`);

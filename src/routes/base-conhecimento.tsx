@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   BookOpen,
@@ -17,7 +17,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -69,10 +69,18 @@ function BaseConhecimentoPage() {
   const podeExcluir = user?.papel === "admin" || user?.papel === "superusuario";
 
   const [busca, setBusca] = useState("");
+  const [buscaDebounced, setBuscaDebounced] = useState("");
   const [setorFiltro, setSetorFiltro] = useState<string>("");
   const [artigoSelecionado, setArtigoSelecionado] = useState<ArtigoBaseConhecimento | null>(null);
   const [modalEdicaoAberto, setModalEdicaoAberto] = useState(false);
   const [artigoEditando, setArtigoEditando] = useState<ArtigoBaseConhecimento | null>(null);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setBuscaDebounced(busca.trim());
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [busca]);
 
   // Formulário de criação/edição
   const [formTitulo, setFormTitulo] = useState("");
@@ -128,8 +136,10 @@ function BaseConhecimentoPage() {
   }
 
   const { data: artigos = [], isPending } = useQuery({
-    queryKey: ["base-conhecimento", busca, setorFiltro],
-    queryFn: () => listarArtigos(setorFiltro ? { busca, setor: setorFiltro } : { busca }),
+    queryKey: ["base-conhecimento", buscaDebounced, setorFiltro],
+    queryFn: () => listarArtigos(setorFiltro ? { busca: buscaDebounced, setor: setorFiltro } : { busca: buscaDebounced }),
+    staleTime: 60_000,
+    placeholderData: keepPreviousData,
   });
 
   const salvarMutation = useMutation({

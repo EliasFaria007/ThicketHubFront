@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import {
+  Bell,
   CheckCircle2,
+  Clock,
   Database,
   Globe,
   Inbox,
@@ -13,8 +15,11 @@ import {
   Send,
   Server,
   ShieldAlert,
+  Sliders,
+  Star,
   TestTube2,
   Users,
+  Webhook,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -28,17 +33,21 @@ import { Label } from "@/components/ui/label";
 import { SETORES } from "@/lib/dominio";
 import {
   obterConfiguracaoEmail,
+  obterConfiguracaoGeral,
   obterConfiguracaoLdap,
   obterDominiosInstitucionais,
   salvarConfiguracaoEmail,
+  salvarConfiguracaoGeral,
   salvarConfiguracaoLdap,
   salvarDominiosInstitucionais,
   sincronizarLdap,
   testarConexaoLdap,
   testarEnvioEmail,
+  testarWebhookInstitucional,
 } from "@/services/configuracoes";
 import type {
   ConfiguracaoEmail,
+  ConfiguracaoGeral,
   ConfiguracaoLdap,
   ResultadoTesteEmail,
   ResultadoTesteLdap,
@@ -63,7 +72,7 @@ export const Route = createFileRoute("/configuracoes")({
   ),
 });
 
-type AbaConfig = "ldap" | "email" | "dominios";
+type AbaConfig = "ldap" | "email" | "dominios" | "geral";
 
 function ConfiguracoesPage() {
   const [abaAtiva, setAbaAtiva] = useState<AbaConfig>("ldap");
@@ -71,7 +80,7 @@ function ConfiguracoesPage() {
   return (
     <AppLayout
       titulo="Integrações & Configurações"
-      descricao="Integração com Active Directory / LDAP corporativo, mensageria de e-mails e domínios"
+      descricao="Integração com Active Directory / LDAP corporativo, mensageria de e-mails, domínios e automações institucionais"
     >
       <div className="space-y-6">
         {/* Abas de navegação */}
@@ -103,12 +112,22 @@ function ConfiguracoesPage() {
             <Globe className="size-4" />
             Domínios Institucionais
           </Button>
+          <Button
+            variant={abaAtiva === "geral" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setAbaAtiva("geral")}
+            className="gap-2"
+          >
+            <Sliders className="size-4" />
+            Geral & Automações
+          </Button>
         </div>
 
         {/* Conteúdo da aba */}
         {abaAtiva === "ldap" && <PainelLdap />}
         {abaAtiva === "email" && <PainelEmail />}
         {abaAtiva === "dominios" && <PainelDominios />}
+        {abaAtiva === "geral" && <PainelGeralAutomacoes />}
       </div>
     </AppLayout>
   );
@@ -884,3 +903,289 @@ function PainelDominios() {
     </div>
   );
 }
+
+// ---------------------------------------------------------------------------
+// ABA 4: Geral & Automações Institucionais (Pesquisa, Inatividade, Webhooks)
+// ---------------------------------------------------------------------------
+
+function PainelGeralAutomacoes() {
+  const queryClient = useQueryClient();
+  const qGeral = useQuery({
+    queryKey: ["configuracoes", "geral"],
+    queryFn: obterConfiguracaoGeral,
+  });
+
+  const [form, setForm] = useState<ConfiguracaoGeral>({
+    justificativaNotaBaixaObrigatoria: true,
+    alertaNotaBaixaAtivo: true,
+    fechamentoInatividadeAtivo: true,
+    diasInatividadeFechamento: 5,
+    webhookAtivo: false,
+    webhookUrl: "",
+    webhookNivelMinimo: "CRITICA",
+  });
+
+  const [testandoWebhook, setTestandoWebhook] = useState(false);
+
+  useEffect(() => {
+    if (qGeral.data) {
+      setForm((prev) => ({ ...prev, ...qGeral.data }));
+    }
+  }, [qGeral.data]);
+
+  const mSalvar = useMutation({
+    mutationFn: salvarConfiguracaoGeral,
+    onSuccess: (dados) => {
+      toast.success("Configurações gerais salvas com sucesso!");
+      setForm((prev) => ({ ...prev, ...dados }));
+      void queryClient.invalidateQueries({ queryKey: ["configuracoes", "geral"] });
+    },
+    onError: (err: Error) =>
+      toast.error("Falha ao salvar configurações gerais", { description: err.message }),
+  });
+
+  async function handleTestarWebhook() {
+    if (!form.webhookUrl.trim()) {
+      toast.error("Informe a URL do Webhook antes de realizar o teste.");
+      return;
+    }
+    setTestandoWebhook(true);
+    try {
+      const res = await testarWebhookInstitucional(form.webhookUrl.trim());
+      if (res.sucesso) {
+        toast.success("Teste de Webhook realizado com sucesso!", {
+          description: res.mensagem || "Mensagem de alerta institucional enviada ao canal.",
+        });
+      } else {
+        toast.error("Falha no disparo do webhook", { description: res.mensagem });
+      }
+    } catch (err: any) {
+      toast.error("Erro ao disparar webhook de teste", { description: err?.message });
+    } finally {
+      setTestandoWebhook(false);
+    }
+  }
+
+  if (qGeral.isError) {
+    return (
+      <div className="surface-card p-4">
+        <MensagemErro erro={qGeral.error} />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* 1. Pesquisa de Satisfação & Qualidade */}
+      <div className="surface-card p-6 space-y-4">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <Star className="size-5 text-warning fill-warning" />
+            Pesquisa de Satisfação & Ouvidoria
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Diretrizes de apuração da qualidade do atendimento e auditoria de feedbacks dos solicitantes.
+          </p>
+        </div>
+
+        <div className="space-y-3 pt-2">
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              className="mt-1 size-4 rounded border-input text-primary focus:ring-primary"
+              checked={form.justificativaNotaBaixaObrigatoria}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, justificativaNotaBaixaObrigatoria: e.target.checked }))
+              }
+            />
+            <div>
+              <span className="text-sm font-medium text-foreground">
+                Exigir justificativa obrigatória para avaliações baixas (1 ou 2 estrelas)
+              </span>
+              <p className="text-xs text-muted-foreground">
+                Impede o solicitante de concluir uma avaliação de 1 ou 2 estrelas sem detalhar por escrito o motivo da insatisfação.
+              </p>
+            </div>
+          </label>
+
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              className="mt-1 size-4 rounded border-input text-primary focus:ring-primary"
+              checked={form.alertaNotaBaixaAtivo}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, alertaNotaBaixaAtivo: e.target.checked }))
+              }
+            />
+            <div>
+              <span className="text-sm font-medium text-foreground">
+                Notificar gestores e administradores sobre avaliações insatisfatórias
+              </span>
+              <p className="text-xs text-muted-foreground">
+                Gera um alerta de notificação prioritário aos administradores e superusuários com o protocolo e o feedback recebido.
+              </p>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      {/* 2. Fechamento Automático de Chamados por Inatividade */}
+      <div className="surface-card p-6 space-y-4">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <Clock className="size-5 text-primary" />
+            Fechamento Automático por Inatividade
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Arquivamento definitivo de chamados solucionados cujos solicitantes não interagiram.
+          </p>
+        </div>
+
+        <div className="space-y-4 pt-2">
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              className="mt-1 size-4 rounded border-input text-primary focus:ring-primary"
+              checked={form.fechamentoInatividadeAtivo}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, fechamentoInatividadeAtivo: e.target.checked }))
+              }
+            />
+            <div>
+              <span className="text-sm font-medium text-foreground">
+                Habilitar encerramento automático de chamados resolvidos
+              </span>
+              <p className="text-xs text-muted-foreground">
+                Um job periódico agendado no servidor analisa chamados com status Resolvido e os fecha após o período de tolerância.
+              </p>
+            </div>
+          </label>
+
+          {form.fechamentoInatividadeAtivo && (
+            <div className="max-w-xs space-y-1.5 pl-7">
+              <Label htmlFor="dias-inatividade">Dias de tolerância para fechamento</Label>
+              <div className="flex items-center gap-2">
+                <Input
+                  id="dias-inatividade"
+                  type="number"
+                  min={1}
+                  max={60}
+                  value={form.diasInatividadeFechamento}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      diasInatividadeFechamento: Math.max(1, Number(e.target.value) || 1),
+                    }))
+                  }
+                />
+                <span className="text-xs text-muted-foreground whitespace-nowrap">dias corridos</span>
+              </div>
+            </div>
+          )}
+
+          {/* Regra estrita pedida pelo usuário: não fechar Aguardando Usuário */}
+          <div className="rounded-lg border border-primary/20 bg-primary/5 p-3.5 text-xs text-foreground">
+            <p className="font-semibold text-primary">Regra de Proteção Institucional:</p>
+            <p className="mt-1 text-muted-foreground">
+              Chamados no status <strong>"Aguardando Usuário"</strong> nunca são alterados ou fechados automaticamente por este processo. O encerramento automático se aplica estritamente a chamados que já foram concluídos pela equipe técnica (status <em>Resolvido</em>) e aguardam validação final do solicitante.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Webhook Institucional */}
+      <div className="surface-card p-6 space-y-4">
+        <div className="flex flex-col gap-1">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <Webhook className="size-5 text-primary" />
+            Webhook Institucional — Microsoft Teams & Slack
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Disparo de alertas em tempo real em canais de incidentes corporativos na abertura de novos chamados.
+          </p>
+        </div>
+
+        <div className="space-y-4 pt-2">
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              className="mt-1 size-4 rounded border-input text-primary focus:ring-primary"
+              checked={form.webhookAtivo}
+              onChange={(e) => setForm((f) => ({ ...f, webhookAtivo: e.target.checked }))}
+            />
+            <div>
+              <span className="text-sm font-medium text-foreground">
+                Habilitar disparos automáticos para Webhook
+              </span>
+              <p className="text-xs text-muted-foreground">
+                Envia cartão informativo com protocolo, solicitante, prioridade e setor diretamente no canal.
+              </p>
+            </div>
+          </label>
+
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div className="sm:col-span-2 space-y-1.5">
+              <Label htmlFor="webhook-url">URL do Webhook (Teams / Slack / Discord / API)</Label>
+              <Input
+                id="webhook-url"
+                placeholder="https://outlook.office.com/webhook/... ou https://hooks.slack.com/services/..."
+                value={form.webhookUrl}
+                onChange={(e) => setForm((f) => ({ ...f, webhookUrl: e.target.value }))}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="webhook-nivel">Disparar a partir do nível de prioridade</Label>
+              <select
+                id="webhook-nivel"
+                className="h-9 w-full rounded-md border border-input bg-card px-3 text-sm"
+                value={form.webhookNivelMinimo}
+                onChange={(e) => setForm((f) => ({ ...f, webhookNivelMinimo: e.target.value }))}
+              >
+                <option value="CRITICA">Apenas Crítica (P1)</option>
+                <option value="ALTA">Alta e Crítica (P1 e P2)</option>
+                <option value="TODAS">Todas as prioridades</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex gap-2 pt-1">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={testandoWebhook || !form.webhookUrl.trim()}
+              onClick={handleTestarWebhook}
+              className="gap-1.5"
+            >
+              {testandoWebhook ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <TestTube2 className="size-4" />
+              )}
+              Testar Webhook Institucional
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Salvar geral */}
+      <div className="flex justify-end pt-2">
+        <Button
+          type="button"
+          disabled={mSalvar.isPending}
+          onClick={() => mSalvar.mutate(form)}
+          className="gap-1.5"
+        >
+          {mSalvar.isPending ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : (
+            <CheckCircle2 className="size-4" />
+          )}
+          Salvar Configurações Gerais
+        </Button>
+      </div>
+    </div>
+  );
+}
+

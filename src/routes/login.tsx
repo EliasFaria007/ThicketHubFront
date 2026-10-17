@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import "@/lib/auth-bridge";
 import { USANDO_DEMO } from "@/lib/http";
-import { login } from "@/services/auth";
+import { login, loginMicrosoft } from "@/services/auth";
 import { useAuthStore } from "@/stores/auth";
 
 export const Route = createFileRoute("/login")({
@@ -47,6 +47,8 @@ function LoginPage() {
   const hidratado = useAuthStore((s) => s.hidratado);
   const [valores, setValores] = useState({ email: "", password: "" });
   const [erros, setErros] = useState<{ email?: string | undefined; password?: string | undefined }>({});
+  const [erroMicrosoft, setErroMicrosoft] = useState<string | null>(null);
+  const [tentandoSsoSilencioso, setTentandoSsoSilencioso] = useState(false);
 
   useEffect(() => {
     if (hidratado && token) void router.navigate({ to: "/", replace: true });
@@ -55,13 +57,220 @@ function LoginPage() {
   const mutation = useMutation({
     mutationFn: login,
     onSuccess: (data) => {
+      if (typeof window !== "undefined") window.sessionStorage.removeItem("logout_manual");
       entrar(data);
       void router.navigate({ to: "/", replace: true });
     },
   });
 
+  const mutationMicrosoft = useMutation({
+    mutationFn: loginMicrosoft,
+    onSuccess: (data) => {
+      if (typeof window !== "undefined") window.sessionStorage.removeItem("logout_manual");
+      entrar(data);
+      void router.navigate({ to: "/", replace: true });
+    },
+    onError: (err: any) => {
+      setTentandoSsoSilencioso(false);
+      const msg = err?.response?.data?.message || err?.message || "Não foi possível autenticar com a conta Microsoft.";
+      setErroMicrosoft(msg);
+    },
+  });
+
+  // Se esta janela for o próprio popup de retorno do OAuth2 da Microsoft
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.opener && window.name === "MicrosoftLoginPopup") {
+      const hash = window.location.hash || window.location.search;
+      if (hash) {
+        window.opener.postMessage({ type: "MS_AUTH_CALLBACK", hash }, window.location.origin);
+        window.close();
+      }
+    }
+  }, []);
+
+  // Ouvinte na janela principal para mensagens do popup ou do iframe silencioso
+  useEffect(() => {
+    function onMessage(event: MessageEvent) {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type === "MS_AUTH_CALLBACK" || event.data?.type === "MS_SILENT_AUTH_CALLBACK") {
+        const hash = event.data.hash as string;
+        const params = new URLSearchParams(hash.replace(/^[#?]/, ""));
+        const idToken = params.get("id_token") || params.get("access_token");
+        const code = params.get("code");
+        const error = params.get("error_description") || params.get("error");
+
+        if (error) {
+          // Se for SSO silencioso e falhou (requer interação do usuário), apenas para sem poluir a tela
+          if (event.data?.type === "MS_SILENT_AUTH_CALLBACK") {
+            setTentandoSsoSilencioso(false);
+            return;
+          }
+          setErroMicrosoft(decodeURIComponent(error));
+          return;
+        }
+
+        const emailHint = valores.email.trim();
+        if (idToken || code) {
+          mutationMicrosoft.mutate({
+            idToken: idToken || code || "",
+            ...(emailHint ? { email: emailHint } : {}),
+          });
+        } else {
+          setTentandoSsoSilencioso(false);
+        }
+      }
+    }
+
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [valores.email, mutationMicrosoft]);
+
+  // Se esta janela estiver dentro do iframe invisível de login silencioso
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.parent && window.parent !== window && window.name === "ms_silent_auth_frame") {
+      const hash = window.location.hash || window.location.search;
+      if (hash) {
+        window.parent.postMessage({ type: "MS_SILENT_AUTH_CALLBACK", hash }, window.location.origin);
+      }
+    }
+  }, []);
+
+  // Tentativa de SSO silencioso automático ao carregar a página (Opção A)
+  useEffect(() => {
+    if (typeof window === "undefined" || !hidratado || token) return;
+
+    // Se o usuário clicou em 'Sair' voluntariamente, respeita e não força login automático imediato
+    if (window.sessionStorage.getItem("logout_manual") === "true") {
+      return;
+    }
+
+    const clientId = (import.meta as any).env.VITE_AZURE_CLIENT_ID;
+    const tenantId = (import.meta as any).env.VITE_AZURE_TENANT_ID || "common";
+
+    if (!clientId) return;
+
+    // Dispara login silencioso via iframe oculto com prompt=none
+    setTentandoSsoSilencioso(true);
+
+    const redirectUri = window.location.origin + "/login";
+    const silentAuthUrl =
+      `https://login.microsoftonline.com/${encodeURIComponent(tenantId)}/oauth2/v2.0/authorize?` +
+      `client_id=${encodeURIComponent(clientId)}` +
+      `&response_type=id_token` +
+      `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+      `&scope=${encodeURIComponent("openid profile email")}` +
+      `&response_mode=fragment` +
+      `&prompt=none` +
+      `&nonce=${Date.now()}`;
+
+    // Cria ou reutiliza iframe oculto
+    let iframe = document.getElementById("ms_silent_auth_frame") as HTMLIFrameElement | null;
+    if (!iframe) {
+      iframe = document.createElement("iframe");
+      iframe.id = "ms_silent_auth_frame";
+      iframe.name = "ms_silent_auth_frame";
+      iframe.style.display = "none";
+      iframe.style.position = "absolute";
+      iframe.style.width = "0px";
+      iframe.style.height = "0px";
+      iframe.style.border = "none";
+      document.body.appendChild(iframe);
+    }
+    iframe.src = silentAuthUrl;
+
+    // Timeout de segurança para caso o iframe demore ou não responda
+    const timer = setTimeout(() => {
+      setTentandoSsoSilencioso(false);
+    }, 4000);
+
+    return () => clearTimeout(timer);
+  }, [hidratado, token]);
+
+  function handleLoginMicrosoft() {
+    setErroMicrosoft(null);
+    const emailHint = valores.email.trim();
+
+    // Configurações do popup OAuth2 / Entra ID da Microsoft
+    const clientId = (import.meta as any).env.VITE_AZURE_CLIENT_ID;
+    const tenantId = (import.meta as any).env.VITE_AZURE_TENANT_ID || "common";
+
+    if (!clientId) {
+      setErroMicrosoft(
+        "Para conectar com o Azure Entra ID / Microsoft real, configure a variável VITE_AZURE_CLIENT_ID no arquivo .env do front-end com o ID do aplicativo cadastrado no portal do Azure."
+      );
+      return;
+    }
+
+    const redirectUri = window.location.origin + "/login";
+    const width = 500;
+    const height = 650;
+    const left = window.screenX + (window.outerWidth - width) / 2;
+    const top = window.screenY + (window.outerHeight - height) / 2;
+
+    // URL de autorização da Microsoft (OAuth 2.0 / OpenID Connect)
+    const authUrl =
+      `https://login.microsoftonline.com/${encodeURIComponent(tenantId)}/oauth2/v2.0/authorize?` +
+      `client_id=${encodeURIComponent(clientId)}` +
+      `&response_type=id_token` +
+      `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+      `&scope=${encodeURIComponent("openid profile email")}` +
+      `&response_mode=fragment` +
+      `&nonce=${Date.now()}` +
+      (emailHint ? `&login_hint=${encodeURIComponent(emailHint)}` : "");
+
+    const popup = window.open(
+      authUrl,
+      "MicrosoftLoginPopup",
+      `width=${width},height=${height},left=${left},top=${top},status=no,toolbar=no,menubar=no,location=yes,resizable=yes`
+    );
+
+    if (!popup || popup.closed || typeof popup.closed === "undefined") {
+      setErroMicrosoft("O navegador bloqueou a janela pop-up. Por favor, habilite pop-ups para este site.");
+      return;
+    }
+
+    // Monitora a janela pop-up para o caso de o usuário fechá-la ou fallback
+    const timer = setInterval(() => {
+      try {
+        if (popup.closed) {
+          clearInterval(timer);
+          return;
+        }
+
+        // Tenta ler o hash da URL se o popup redirecionou de volta para a mesma origem
+        if (popup.location.href.includes(window.location.origin)) {
+          const hash = popup.location.hash || popup.location.search;
+          const params = new URLSearchParams(hash.replace(/^[#?]/, ""));
+          const idToken = params.get("id_token") || params.get("access_token");
+          const error = params.get("error_description") || params.get("error");
+
+          popup.close();
+          clearInterval(timer);
+
+          if (error) {
+            setErroMicrosoft(decodeURIComponent(error));
+            return;
+          }
+
+          if (idToken) {
+            mutationMicrosoft.mutate({
+              idToken,
+              ...(emailHint ? { email: emailHint } : {}),
+            });
+          }
+        }
+      } catch {
+        // Cross-origin inicial enquanto o usuário navega na página de login da Microsoft (esperado)
+      }
+    }, 500);
+
+    // Timeout de segurança: se após 5 minutos ainda estiver aberto, limpa o timer
+    setTimeout(() => clearInterval(timer), 300000);
+  }
+
   function onSubmit(event: React.FormEvent) {
     event.preventDefault();
+    setErroMicrosoft(null);
     const resultado = schema.safeParse(valores);
     if (!resultado.success) {
       const flat = resultado.error.flatten().fieldErrors;
@@ -175,6 +384,46 @@ function LoginPage() {
             </Button>
           </form>
 
+          {/* Separador */}
+          <div className="relative mt-6">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-border" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-background px-2 text-muted-foreground">ou continue com</span>
+            </div>
+          </div>
+
+          {/* Botão Microsoft */}
+          <Button
+            type="button"
+            variant="outline"
+            className="mt-4 w-full gap-3"
+            disabled={mutationMicrosoft.isPending || tentandoSsoSilencioso}
+            onClick={handleLoginMicrosoft}
+          >
+            {mutationMicrosoft.isPending || tentandoSsoSilencioso ? (
+              <Loader2 className="size-4 animate-spin" />
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 23 23" aria-hidden>
+                <path fill="#f35325" d="M1 1h10v10H1z" />
+                <path fill="#81bc06" d="M12 1h10v10H12z" />
+                <path fill="#05a6f0" d="M1 12h10v10H1z" />
+                <path fill="#ffba08" d="M12 12h10v10H12z" />
+              </svg>
+            )}
+            {tentandoSsoSilencioso
+              ? "Identificando conta institucional corporativa…"
+              : mutationMicrosoft.isPending
+                ? "Autenticando…"
+                : "Conta institucional Microsoft"}
+          </Button>
+
+          {erroMicrosoft && (
+            <p role="alert" className="mt-2 text-sm font-medium text-destructive">
+              {erroMicrosoft}
+            </p>
+          )}
           {USANDO_DEMO && (
             <div className="mt-8 rounded-lg border border-border bg-card p-4 text-sm">
               <p className="font-semibold text-foreground">Ambiente de demonstração</p>

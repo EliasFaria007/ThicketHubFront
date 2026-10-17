@@ -15,7 +15,7 @@ import {
   UserCheck,
   X,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -142,10 +142,35 @@ function ListaChamadosPage() {
   const setoresVisiveis: string[] = user?.papel === "usuario" ? SETORES : setoresVisiveisPara(user, SETORES);
 
   function aplicar(patch: Record<string, unknown>) {
-    void navigate({ to: ".", search: (prev) => ({ ...prev, page: 1, ...patch }) });
+    void navigate({ to: ".", search: (prev: any) => ({ ...prev, page: 1, ...patch }) });
   }
 
-  const notificacoes = useQuery({ queryKey: ["notificacoes"], queryFn: listarNotificacoes });
+  // Sincroniza busca com a URL caso a URL mude externamente
+  useEffect(() => {
+    setBusca(search.q ?? "");
+  }, [search.q]);
+
+  // Debounce automático de 350ms para a busca rápida sem travar a digitação
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const qAtual = search.q ?? "";
+      const qNovo = busca.trim();
+      if (qNovo !== qAtual) {
+        aplicar({ q: qNovo || undefined });
+      }
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [busca]);
+
+  function abrirChamado(id: string | number, e: React.MouseEvent) {
+    const target = e.target as HTMLElement | null;
+    if (target?.closest("button, a, input, select, textarea, [role='button'], [data-prevent-card-click]")) {
+      return;
+    }
+    void navigate({ to: "/chamados/$id", params: { id: String(id) } });
+  }
+
+  const notificacoes = useQuery({ queryKey: ["notificacoes"], queryFn: listarNotificacoes, staleTime: 30_000 });
   const chamadosComNovidade = useMemo(
     () => new Set((notificacoes.data?.items ?? []).filter((n) => !n.lida).map((n) => n.chamadoId)),
     [notificacoes.data],
@@ -155,8 +180,8 @@ function ListaChamadosPage() {
     queryKey: ["chamados", "contagem-minha", user?.id],
     queryFn: () => listarChamados({ fila: "minha", limit: 1, page: 1 }),
     enabled: podeVerFilas,
-    staleTime: 10_000,
-    refetchInterval: 15_000,
+    staleTime: 30_000,
+    refetchInterval: 30_000,
   });
   const totalAssumidos = contagemMinha.data?.total ?? 0;
 
@@ -164,8 +189,8 @@ function ListaChamadosPage() {
     queryKey: ["chamados", "contagem-geral"],
     queryFn: () => listarChamados({ fila: "geral", limit: 1, page: 1 }),
     enabled: podeVerFilas,
-    staleTime: 10_000,
-    refetchInterval: 15_000,
+    staleTime: 30_000,
+    refetchInterval: 30_000,
   });
   const totalFilaGeral = contagemGeral.data?.total ?? 0;
 
@@ -173,8 +198,8 @@ function ListaChamadosPage() {
     queryKey: ["chamados", "contagem-resolvidos", user?.id],
     queryFn: () => listarChamados({ fila: "resolvidos", limit: 1, page: 1 }),
     enabled: podeVerFilas,
-    staleTime: 10_000,
-    refetchInterval: 15_000,
+    staleTime: 30_000,
+    refetchInterval: 30_000,
   });
   const totalResolvidos = contagemResolvidos.data?.total ?? 0;
 
@@ -221,19 +246,19 @@ function ListaChamadosPage() {
         ordenarPor: search.ordenarPor,
         ordem: search.ordem,
       }),
-    staleTime: 10_000,
-    refetchInterval: 15_000,
-    refetchOnWindowFocus: true,
+    staleTime: 20_000,
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: false,
     placeholderData: keepPreviousData,
   });
 
   const chips = useMemo(() => {
     const lista: { rotulo: string; limpar: () => void }[] = [];
     if (search.status)
-      lista.push({ rotulo: `Status: ${STATUS_LABEL[search.status]}`, limpar: () => aplicar({ status: undefined }) });
+      lista.push({ rotulo: `Status: ${STATUS_LABEL[search.status as StatusChamado] ?? search.status}`, limpar: () => aplicar({ status: undefined }) });
     if (search.prioridade)
       lista.push({
-        rotulo: `Prioridade: ${PRIORIDADE_LABEL[search.prioridade]}`,
+        rotulo: `Prioridade: ${PRIORIDADE_LABEL[search.prioridade as PrioridadeChamado] ?? search.prioridade}`,
         limpar: () => aplicar({ prioridade: undefined }),
       });
     if (search.setor) lista.push({ rotulo: `Setor: ${search.setor}`, limpar: () => aplicar({ setor: undefined }) });
@@ -371,7 +396,7 @@ function ListaChamadosPage() {
             <div className="flex items-center gap-2">
               <CheckCheck className="size-4 text-green-600" />
               <span>
-                Chamados <strong>resolvidos e fechados</strong> que foram atendidos por você.
+                Chamados <strong>resolvidos e fechados</strong> no sistema.
               </span>
             </div>
           </div>
@@ -527,7 +552,11 @@ function ListaChamadosPage() {
                         chamado.status === "cancelado";
 
                       return (
-                        <tr key={chamado.id} className="transition-soft hover:bg-muted/50">
+                        <tr
+                          key={chamado.id}
+                          onClick={(e) => abrirChamado(chamado.id, e)}
+                          className="cursor-pointer transition-soft hover:bg-muted/50"
+                        >
                           <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
                             <span className="inline-flex items-center gap-1.5">
                               {chamadosComNovidade.has(String(chamado.id)) ? (
@@ -665,7 +694,11 @@ function ListaChamadosPage() {
                     chamado.status === "cancelado";
 
                   return (
-                    <li key={chamado.id} className="p-4 space-y-2">
+                    <li
+                      key={chamado.id}
+                      onClick={(e) => abrirChamado(chamado.id, e)}
+                      className="cursor-pointer p-4 space-y-2 transition-soft hover:bg-muted/50"
+                    >
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-mono text-xs text-muted-foreground">
                           {chamadosComNovidade.has(String(chamado.id)) ? (
@@ -732,7 +765,7 @@ function ListaChamadosPage() {
                 totalPages={data.totalPages}
                 total={data.total}
                 limit={data.limit}
-                onChange={(page) => void navigate({ to: ".", search: (prev) => ({ ...prev, page }) })}
+                onChange={(page) => void navigate({ to: ".", search: (prev: any) => ({ ...prev, page }) })}
               />
             </>
           )}
