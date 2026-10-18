@@ -215,6 +215,7 @@ function LoginPage() {
       `&redirect_uri=${encodeURIComponent(redirectUri)}` +
       `&scope=${encodeURIComponent("openid profile email")}` +
       `&response_mode=fragment` +
+      `&prompt=select_account` +
       `&nonce=${Date.now()}` +
       (emailHint ? `&login_hint=${encodeURIComponent(emailHint)}` : "");
 
