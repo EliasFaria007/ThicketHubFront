@@ -135,56 +135,7 @@ function LoginPage() {
     }
   }, []);
 
-  // Tentativa de SSO silencioso automático ao carregar a página (Opção A)
-  useEffect(() => {
-    if (typeof window === "undefined" || !hidratado || token) return;
-
-    // Se o usuário clicou em 'Sair' voluntariamente, respeita e não força login automático imediato
-    if (window.sessionStorage.getItem("logout_manual") === "true") {
-      return;
-    }
-
-    const clientId = (import.meta as any).env.VITE_AZURE_CLIENT_ID;
-    const tenantId = (import.meta as any).env.VITE_AZURE_TENANT_ID || "common";
-
-    if (!clientId) return;
-
-    // Dispara login silencioso via iframe oculto com prompt=none
-    setTentandoSsoSilencioso(true);
-
-    const redirectUri = window.location.origin + "/login";
-    const silentAuthUrl =
-      `https://login.microsoftonline.com/${encodeURIComponent(tenantId)}/oauth2/v2.0/authorize?` +
-      `client_id=${encodeURIComponent(clientId)}` +
-      `&response_type=id_token` +
-      `&redirect_uri=${encodeURIComponent(redirectUri)}` +
-      `&scope=${encodeURIComponent("openid profile email")}` +
-      `&response_mode=fragment` +
-      `&prompt=none` +
-      `&nonce=${Date.now()}`;
-
-    // Cria ou reutiliza iframe oculto
-    let iframe = document.getElementById("ms_silent_auth_frame") as HTMLIFrameElement | null;
-    if (!iframe) {
-      iframe = document.createElement("iframe");
-      iframe.id = "ms_silent_auth_frame";
-      iframe.name = "ms_silent_auth_frame";
-      iframe.style.display = "none";
-      iframe.style.position = "absolute";
-      iframe.style.width = "0px";
-      iframe.style.height = "0px";
-      iframe.style.border = "none";
-      document.body.appendChild(iframe);
-    }
-    iframe.src = silentAuthUrl;
-
-    // Timeout de segurança para caso o iframe demore ou não responda
-    const timer = setTimeout(() => {
-      setTentandoSsoSilencioso(false);
-    }, 4000);
-
-    return () => clearTimeout(timer);
-  }, [hidratado, token]);
+  // SSO Microsoft sob demanda (acionado apenas ao clicar no botão 'Entrar com conta institucional')
 
   function handleLoginMicrosoft() {
     setErroMicrosoft(null);
