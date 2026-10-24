@@ -70,7 +70,7 @@ const searchSchema = z.object({
   prioridade: z.enum(["baixa", "media", "alta", "critica"]).optional(),
   setor: z.string().optional(),
   servicoId: z.string().optional(),
-  fila: z.enum(["geral", "minha", "resolvidos"]).optional(),
+  fila: z.enum(["geral", "minha", "resolvidos", "todas"]).optional(),
   q: z.string().optional(),
   page: z.number().int().min(1).catch(1).default(1),
   // Java: Chamado.dataAbertura (não criadoEm) — o Spring Data usa o nome do campo Java para sort
@@ -274,7 +274,9 @@ function ListaChamadosPage() {
             ? "Fila geral"
             : search.fila === "resolvidos"
               ? "Chamados resolvidos"
-              : "Minha fila (assumidos)",
+              : search.fila === "todas"
+                ? "Todos os chamados"
+                : "Minha fila (assumidos)",
         limpar: () => aplicar({ fila: undefined }),
       });
     if (search.q)

@@ -82,6 +82,7 @@ export interface Comentario {
   mensagem: string;
   criadoEm: string;
   interno: boolean;
+  anexos?: Anexo[];
 }
 
 export interface HistoricoItem {

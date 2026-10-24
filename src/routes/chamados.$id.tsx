@@ -85,6 +85,8 @@ function DetalheChamadoPage() {
   const [salvandoImagens, setSalvandoImagens] = useState(false);
   const [imagemEmVisualizacao, setImagemEmVisualizacao] = useState<Anexo | null>(null);
   const imagensInputRef = useRef<HTMLInputElement>(null);
+  const [imagensComentario, setImagensComentario] = useState<File[]>([]);
+  const imagensComentarioRef = useRef<HTMLInputElement>(null);
 
   const [assinaturaGraficaAtendimento, setAssinaturaGraficaAtendimento] = useState<string | null>(() => {
     // Inicializa imediatamente com a imagem da assinatura do perfil (se configurado para incluir automaticamente)
@@ -229,7 +231,7 @@ function DetalheChamadoPage() {
   }
 
   const comentario = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       let textoComentario = mensagem.trim();
       if (!interno && user?.assinatura && user?.incluirAssinaturaPadrao !== false) {
         const { texto: textoAss, imagem: imagemAss } = extrairTextoEImagemAssinatura(user.assinatura);
@@ -238,11 +240,16 @@ function DetalheChamadoPage() {
           textoComentario = montarAssinaturaCompleta(textoComentario, imagemAss);
         }
       }
-      return comentarChamado(id, { mensagem: textoComentario, interno });
+      let anexosEnvio: Anexo[] | undefined;
+      if (imagensComentario.length > 0) {
+        anexosEnvio = await Promise.all(imagensComentario.map(arquivoParaAnexo));
+      }
+      return comentarChamado(id, { mensagem: textoComentario, interno, anexos: anexosEnvio });
     },
     onSuccess: () => {
       setMensagem("");
       setInterno(false);
+      setImagensComentario([]);
       void queryClient.invalidateQueries({ queryKey: ["chamado", id] });
       sucesso("Comentário registrado");
     },
@@ -720,6 +727,37 @@ function DetalheChamadoPage() {
                       conteudo={c.mensagem}
                       className="mt-1 text-sm text-muted-foreground"
                     />
+                    {c.anexos && c.anexos.length > 0 && (
+                      <div className="mt-2.5">
+                        <ul className="flex flex-wrap gap-2">
+                          {c.anexos.map((anx) => (
+                            <li key={anx.id} className="group relative overflow-hidden rounded-md border border-border bg-card">
+                              <button
+                                type="button"
+                                className="cursor-pointer overflow-hidden text-left"
+                                onClick={() => setImagemEmVisualizacao(anx)}
+                                title="Visualizar imagem"
+                              >
+                                <img src={anx.url} alt={anx.nome} className="h-20 w-24 object-cover transition-transform group-hover:scale-105" />
+                              </button>
+                              <div className="flex items-center justify-between gap-1 border-t border-border bg-card/90 px-1.5 py-0.5 text-[10px]">
+                                <span className="max-w-[70px] truncate font-medium" title={anx.nome}>
+                                  {anx.nome}
+                                </span>
+                                <button
+                                  type="button"
+                                  className="text-muted-foreground hover:text-foreground"
+                                  onClick={() => baixarAnexo(anx)}
+                                  title="Baixar imagem"
+                                >
+                                  <Download className="size-3" />
+                                </button>
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </div>
                 </li>
               ))}
@@ -733,7 +771,11 @@ function DetalheChamadoPage() {
                 className="mt-4 space-y-2 border-t border-border pt-4"
                 onSubmit={(e) => {
                   e.preventDefault();
-                  if (mensagem.trim().length < 3) {
+                  if (!mensagem.trim() && imagensComentario.length === 0) {
+                    toast.error("Digite uma mensagem ou adicione uma imagem.");
+                    return;
+                  }
+                  if (mensagem.trim() && mensagem.trim().length < 3 && imagensComentario.length === 0) {
                     toast.error("O comentário deve ter no mínimo 3 caracteres.");
                     return;
                   }
@@ -742,21 +784,76 @@ function DetalheChamadoPage() {
               >
                 <div className="flex items-center justify-between">
                   <Label htmlFor="mensagem">Novo comentário</Label>
-                  {!interno && (
-                    <BotaoAssinaturasProntas
-                      usuario={user}
-                      label="Assinaturas prontas"
-                      onInserir={(texto) => setMensagem((prev) => aplicarAssinatura(prev, texto))}
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={imagensComentarioRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="sr-only"
+                      onChange={(e) => {
+                        const novas = Array.from(e.target.files ?? []);
+                        if (novas.length > 0) {
+                          setImagensComentario((prev) => [...prev, ...novas]);
+                        }
+                        if (imagensComentarioRef.current) imagensComentarioRef.current.value = "";
+                      }}
                     />
-                  )}
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-8 gap-1.5 text-xs"
+                      onClick={() => imagensComentarioRef.current?.click()}
+                    >
+                      <ImagePlus className="size-3.5" />
+                      Adicionar imagens
+                    </Button>
+                    {!interno && (
+                      <BotaoAssinaturasProntas
+                        usuario={user}
+                        label="Assinaturas prontas"
+                        onInserir={(texto) => setMensagem((prev) => aplicarAssinatura(prev, texto))}
+                      />
+                    )}
+                  </div>
                 </div>
                 <Textarea
                   id="mensagem"
                   rows={3}
                   value={mensagem}
                   onChange={(e) => setMensagem(e.target.value)}
-                  placeholder="Escreva uma atualização para o chamado"
+                  placeholder="Escreva uma atualização ou tire dúvidas sobre o chamado..."
                 />
+
+                {/* Prévia de imagens anexadas ao comentário */}
+                {imagensComentario.length > 0 && (
+                  <div className="rounded-md border border-border bg-muted/20 p-2.5">
+                    <p className="mb-1.5 text-[11px] font-medium text-muted-foreground">
+                      Imagens selecionadas para este comentário ({imagensComentario.length}):
+                    </p>
+                    <ul className="flex flex-wrap gap-2">
+                      {imagensComentario.map((file, idx) => (
+                        <li
+                          key={${file.name}-}
+                          className="flex items-center gap-1.5 rounded border border-border bg-card px-2 py-1 text-xs"
+                        >
+                          <span className="max-w-[140px] truncate font-medium text-foreground" title={file.name}>
+                            {file.name}
+                          </span>
+                          <span className="text-[10px] text-muted-foreground">({formatarTamanho(file.size)})</span>
+                          <button
+                            type="button"
+                            className="text-muted-foreground hover:text-destructive"
+                            onClick={() => setImagensComentario((prev) => prev.filter((_, i) => i !== idx))}
+                          >
+                            <Trash2 className="size-3" />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
                 <div className="flex items-center justify-between gap-3">
                   {podeAtualizar ? (
                     <label className="flex items-center gap-2 text-sm text-muted-foreground">

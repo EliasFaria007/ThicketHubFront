@@ -1,7 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
-import { ArrowLeft, BookOpen, CheckCircle, Download, ExternalLink, FileText, Lightbulb, Loader2, PenLine, PlusCircle, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ArrowLeft, BookOpen, CheckCircle, Download, ExternalLink, FileText, ImagePlus, Lightbulb, Loader2, PenLine, PlusCircle, Trash2, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { arquivoParaAnexo } from "@/lib/arquivos";
+import { formatarTamanho } from "@/lib/format";
+import type { Anexo } from "@/types";
 import { toast } from "sonner";
 import { z } from "zod";
 
@@ -57,6 +60,9 @@ function NovoChamadoPage() {
   const [valores, setValores] = useState({ titulo: "", servicoId: "", descricao: "" });
   const [erros, setErros] = useState<Record<string, string | undefined>>({});
   const [artigoVisualizando, setArtigoVisualizando] = useState<ArtigoBaseConhecimento | null>(null);
+  const [imagens, setImagens] = useState<File[]>([]);
+  const [processandoImagens, setProcessandoImagens] = useState(false);
+  const imagensInputRef = useRef<HTMLInputElement>(null);
 
   // Pré-preenche apenas o TEXTO da assinatura no campo de descrição se configurado para incluir automaticamente
   // (a imagem gráfica, se houver, não é exibida no campo de texto)
@@ -111,7 +117,9 @@ function NovoChamadoPage() {
       return;
     }
     setErros({});
-    const dadosEnvio = { ...resultado.data };
+    const dadosEnvio: { titulo: string; servicoId: string; descricao: string; anexos?: Anexo[] } = {
+      ...resultado.data,
+    };
     // Aplica apenas o texto da assinatura (sem códigos de imagem base64) na descrição
     if (user?.assinatura && user?.incluirAssinaturaPadrao !== false) {
       const { texto: textoAss } = extrairTextoEImagemAssinatura(user.assinatura);
@@ -119,6 +127,21 @@ function NovoChamadoPage() {
         dadosEnvio.descricao = aplicarAssinatura(dadosEnvio.descricao, textoAss);
       }
     }
+
+    if (imagens.length > 0) {
+      setProcessandoImagens(true);
+      Promise.all(imagens.map(arquivoParaAnexo))
+        .then((anexos) => {
+          dadosEnvio.anexos = anexos;
+          mutation.mutate(dadosEnvio);
+        })
+        .catch((err) => {
+          toast.error("Erro ao processar imagens", { description: err?.message });
+        })
+        .finally(() => setProcessandoImagens(false));
+      return;
+    }
+
     mutation.mutate(dadosEnvio);
   }
 
@@ -240,9 +263,78 @@ function NovoChamadoPage() {
           </p>
         </div>
 
+        {/* Adicionar imagens / evidências */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Label>Imagens e evidências do problema (opcional)</Label>
+            {imagens.length > 0 && (
+              <span className="text-xs text-muted-foreground">
+                {imagens.length} imagem(ns) selecionada(s)
+              </span>
+            )}
+          </div>
+          <input
+            ref={imagensInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="sr-only"
+            onChange={(e) => {
+              const novas = Array.from(e.target.files ?? []);
+              if (novas.length > 0) {
+                setImagens((prev) => [...prev, ...novas]);
+              }
+              if (imagensInputRef.current) imagensInputRef.current.value = "";
+            }}
+          />
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            onClick={() => imagensInputRef.current?.click()}
+          >
+            <ImagePlus className="size-4" />
+            Adicionar imagens
+          </Button>
+
+          {imagens.length > 0 && (
+            <div className="rounded-lg border border-border bg-muted/20 p-3">
+              <p className="mb-2 text-xs font-semibold text-muted-foreground">
+                Imagens prontas para anexar ao chamado:
+              </p>
+              <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {imagens.map((file, idx) => (
+                  <li
+                    key={${file.name}-}
+                    className="group relative overflow-hidden rounded-md border border-border bg-card p-2"
+                  >
+                    <div className="flex items-center justify-between gap-1 text-xs">
+                      <span className="truncate font-medium text-foreground" title={file.name}>
+                        {file.name}
+                      </span>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="size-5 text-muted-foreground hover:text-destructive"
+                        title="Remover imagem"
+                        onClick={() => setImagens((prev) => prev.filter((_, i) => i !== idx))}
+                      >
+                        <Trash2 className="size-3" />
+                        <span className="sr-only">Remover</span>
+                      </Button>
+                    </div>
+                    <span className="text-[10px] text-muted-foreground">{formatarTamanho(file.size)}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+
         <div className="flex items-center gap-3">
-          <Button type="submit" disabled={mutation.isPending}>
-            {mutation.isPending ? <Loader2 className="size-4 animate-spin" /> : <PlusCircle className="size-4" />}
+          <Button type="submit" disabled={mutation.isPending || processandoImagens}>
+            {mutation.isPending || processandoImagens ? <Loader2 className="size-4 animate-spin" /> : <PlusCircle className="size-4" />}
             Abrir chamado
           </Button>
           <Button asChild type="button" variant="ghost">

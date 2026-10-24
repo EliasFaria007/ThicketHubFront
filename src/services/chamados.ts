@@ -24,10 +24,14 @@ function adaptarComentario(com: any): Comentario {
   const papelRaw = com.autorPapel ?? com.autor?.papel ?? com.usuarioPapel ?? "usuario";
   const papel = (String(papelRaw).toLowerCase() as Papel) || "usuario";
 
+  const { oQueFoiFeito: msgLimpa, anexos: anexosMsg } = extrairAnexosEOQueFoiFeito(com.mensagem);
+  const anexosApi = Array.isArray(com.anexos) ? com.anexos : [];
+  const todosAnexos = [...anexosApi, ...anexosMsg];
+
   return {
     id: String(com.id),
     chamadoId: String(com.chamadoId ?? ""),
-    mensagem: com.mensagem ?? "",
+    mensagem: msgLimpa ?? com.mensagem ?? "",
     interno: Boolean(com.interno ?? com.flagInterno),
     criadoEm: com.criadoEm ?? com.dataCriacao ?? com.dataHora ?? new Date().toISOString(),
     autor: {
@@ -35,6 +39,7 @@ function adaptarComentario(com: any): Comentario {
       nome: com.autor?.nome ?? com.autorNome ?? com.usuarioNome ?? "Usuário",
       papel,
     },
+    anexos: todosAnexos.length > 0 ? todosAnexos : undefined,
   };
 }
 
@@ -66,9 +71,10 @@ function adaptarChamado(c: any): Chamado {
   if (!c) return c;
   const idStr = String(c.id);
   const { oQueFoiFeito, anexos: anexosExtraidos } = extrairAnexosEOQueFoiFeito(c.oQueFoiFeito);
+  const { oQueFoiFeito: descLimpa, anexos: anexosDescricao } = extrairAnexosEOQueFoiFeito(c.descricao);
   const anexosApi = Array.isArray(c.anexos) ? c.anexos : [];
   const anexosLocais = obterAnexosLocalmente(idStr);
-  const anexosCombinados = [...anexosApi, ...anexosExtraidos, ...anexosLocais];
+  const anexosCombinados = [...anexosApi, ...anexosDescricao, ...anexosExtraidos, ...anexosLocais];
   const anexos = Array.from(new Map(anexosCombinados.map((a: Anexo) => [a.id || a.nome, a])).values());
 
   if (anexos.length > 0) {
@@ -78,6 +84,7 @@ function adaptarChamado(c: any): Chamado {
   return {
     ...c,
     id: idStr,
+    descricao: descLimpa ?? c.descricao,
     oQueFoiFeito: oQueFoiFeito ?? (c.oQueFoiFeito ? String(c.oQueFoiFeito) : null),
     anexos,
     criadoEm: c.criadoEm ?? c.dataAbertura ?? new Date().toISOString(),
@@ -227,14 +234,25 @@ export interface NovoChamadoPayload {
   titulo: string;
   descricao: string;
   servicoId: number | string;
+  anexos?: Anexo[];
 }
 
 export async function criarChamado(payload: NovoChamadoPayload): Promise<Chamado> {
+  let descricaoEnviada = payload.descricao;
+  if (payload.anexos && payload.anexos.length > 0) {
+    descricaoEnviada = empacotarOQueFoiFeitoComAnexos(descricaoEnviada, payload.anexos);
+  }
   const data = await apiPost<any>("/chamados", {
-    ...payload,
+    titulo: payload.titulo,
+    descricao: descricaoEnviada,
     servicoId: Number(payload.servicoId),
+    ...(payload.anexos && payload.anexos.length > 0 ? { anexos: payload.anexos } : {}),
   });
-  return adaptarChamado(data);
+  const res = adaptarChamado(data);
+  if (payload.anexos && payload.anexos.length > 0) {
+    salvarAnexosLocalmente(res.id, payload.anexos);
+  }
+  return res;
 }
 
 // ---------------------------------------------------------------------------

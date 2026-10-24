@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useRouter } from "@tanstack/react-router";
+import { Link, useRouter, useRouterState } from "@tanstack/react-router";
 import { obterUsuarioLogado } from "@/services/usuarios";
 import {
   BookMarked,
@@ -9,6 +9,7 @@ import {
   LogOut,
   Menu,
   PlusCircle,
+  Layers,
   BarChart3,
   ScrollText,
   Settings,
@@ -31,6 +32,7 @@ import { podeCadastrarUsuarios, podeExecutar, useAuthStore } from "@/stores/auth
 const NAV = [
   { to: "/", label: "Painel", icone: LayoutDashboard, permissao: "chamados:ler" },
   { to: "/chamados", label: "Chamados", icone: Ticket, permissao: "chamados:ler" },
+  { to: "/chamados", search: { fila: "todas" }, label: "Todos os Chamados", icone: Layers, permissao: "chamados:ler", somenteAdmin: true },
   { to: "/chamados/novo", label: "Abrir chamado", icone: PlusCircle, permissao: "chamados:criar" },
   { to: "/base-conhecimento", label: "Base de Conhecimento", icone: HelpCircle, permissao: "chamados:ler" },
   { to: "/catalogo", label: "Catálogo e SLA", icone: BookMarked, permissao: "catalogo:gerenciar" },
@@ -83,6 +85,12 @@ export function AppLayout({
     // A aba "Painel" não é exibida para o perfil usuário solicitante
     if (item.to === "/" && user?.papel === "usuario") {
       return false;
+    }
+    // "Todos os Chamados" é exibido como aba separada no menu lateral para admin e superusuário
+    if ("somenteAdmin" in item && item.somenteAdmin) {
+      if (user?.papel !== "admin" && user?.papel !== "superusuario") {
+        return false;
+      }
     }
     if (item.to === "/usuarios") {
       return podeExecutar(user?.papel, item.permissao) || podeCadastrarUsuarios(user);
@@ -207,28 +215,44 @@ function NavItens({
   itens,
   onNavegar,
 }: {
-  itens: readonly { to: string; label: string; icone: typeof Ticket }[];
+  itens: readonly any[];
   onNavegar?: () => void;
 }) {
+  const routerState = useRouterState();
+  const pathname = routerState.location.pathname;
+  const search = routerState.location.search as any;
+
   return (
     <nav aria-label="Navegação principal" className="flex-1 space-y-1 px-3 py-2">
-      {itens.map((item) => (
-        <Link
-          key={item.to}
-          to={item.to}
-          preload="intent"
-          onClick={onNavegar}
-          activeOptions={{ exact: item.to === "/" }}
-          className={cn(
-            "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-sidebar-foreground transition-soft",
-            "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
-          )}
-          activeProps={{ className: "bg-sidebar-accent text-sidebar-accent-foreground font-semibold" }}
-        >
-          <item.icone aria-hidden className="size-4.5" />
-          {item.label}
-        </Link>
-      ))}
+      {itens.map((item) => {
+        const ehTodos = item.search?.fila === "todas";
+        const ativo = ehTodos
+          ? pathname.startsWith("/chamados") && search?.fila === "todas"
+          : item.to === "/chamados"
+            ? pathname.startsWith("/chamados") && search?.fila !== "todas"
+            : item.to === "/"
+              ? pathname === "/"
+              : pathname.startsWith(item.to);
+
+        return (
+          <Link
+            key={item.label}
+            to={item.to}
+            search={item.search}
+            preload="intent"
+            onClick={onNavegar}
+            className={cn(
+              "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-soft",
+              ativo
+                ? "bg-sidebar-accent text-sidebar-accent-foreground font-semibold"
+                : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+            )}
+          >
+            <item.icone aria-hidden className="size-4.5" />
+            {item.label}
+          </Link>
+        );
+      })}
     </nav>
   );
 }
