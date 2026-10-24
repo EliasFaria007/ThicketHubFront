@@ -131,6 +131,7 @@ function exportarCsv(itens: ChamadoResumo[]) {
 function ListaChamadosPage() {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: Route.fullPath });
+  const isTodosChamados = search.fila === "todas";
   const [busca, setBusca] = useState(search.q ?? "");
   const user = useAuthStore((s) => s.user);
   const podeVerFilas = podeExecutar(user?.papel, "chamados:fila");
@@ -237,8 +238,6 @@ function ListaChamadosPage() {
   });
 
   const servicos = useQuery({ queryKey: ["servicos"], queryFn: () => listarServicos(), staleTime: 300_000 });
-
-  const isTodosChamados = search.fila === "todas";
 
   const { data, isPending, isError, error, isFetching } = useQuery({
     queryKey: ["chamados", search],
