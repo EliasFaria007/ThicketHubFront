@@ -231,6 +231,8 @@ function ListaChamadosPage() {
 
   const servicos = useQuery({ queryKey: ["servicos"], queryFn: () => listarServicos(), staleTime: 300_000 });
 
+  const isTodosChamados = search.fila === "todas";
+
   const { data, isPending, isError, error, isFetching } = useQuery({
     queryKey: ["chamados", search],
     queryFn: () =>
@@ -239,7 +241,7 @@ function ListaChamadosPage() {
         prioridade: search.prioridade ?? "",
         setor: search.setor ?? "",
         servicoId: search.servicoId ?? "",
-        fila: search.fila ?? "",
+        fila: isTodosChamados ? "" : (search.fila ?? (podeVerFilas ? "minha" : "")),
         q: search.q ?? "",
         page: search.page,
         limit: LIMITE,
@@ -267,16 +269,14 @@ function ListaChamadosPage() {
         rotulo: `Serviço: ${servicos.data?.find((s) => s.id === search.servicoId)?.nome ?? "—"}`,
         limpar: () => aplicar({ servicoId: undefined }),
       });
-    if (search.fila)
+    if (search.fila && search.fila !== "todas")
       lista.push({
         rotulo:
           search.fila === "geral"
             ? "Fila geral"
             : search.fila === "resolvidos"
               ? "Chamados resolvidos"
-              : search.fila === "todas"
-                ? "Todos os chamados"
-                : "Minha fila (assumidos)",
+              : "Minha fila (assumidos)",
         limpar: () => aplicar({ fila: undefined }),
       });
     if (search.q)
@@ -293,8 +293,12 @@ function ListaChamadosPage() {
 
   return (
     <AppLayout
-      titulo="Chamados"
-      descricao="Busque, filtre e acompanhe as solicitações registradas"
+      titulo={isTodosChamados ? "Todos os Chamados" : "Chamados"}
+      descricao={
+        isTodosChamados
+          ? "Visão geral e irrestrita de todos os chamados registrados"
+          : "Busque, filtre e acompanhe as solicitações registradas"
+      }
       acoes={
         <>
           <Button
@@ -314,21 +318,18 @@ function ListaChamadosPage() {
       }
     >
       <div className="space-y-4">
-        {/* Abas de Filas para perfis técnicos e administrativos */}
-        {podeVerFilas && (
+        {/* Abas de Filas: exibidas somente na aba normal 'Chamados' para manter intacta */}
+        {podeVerFilas && !isTodosChamados && (
           <Tabs
-            value={search.fila ?? (podeVerTodos ? "todas" : "minha")}
+            value={search.fila ?? "minha"}
             onValueChange={(val) => {
               aplicar({
-                fila:
-                  val === "todas"
-                    ? undefined
-                    : (val as "geral" | "minha" | "resolvidos"),
+                fila: val as "geral" | "minha" | "resolvidos",
               });
             }}
             className="w-full"
           >
-            <TabsList className={`grid w-full max-w-3xl ${podeVerTodos ? "grid-cols-4" : "grid-cols-3"}`}>
+            <TabsList className="grid w-full max-w-2xl grid-cols-3">
               <TabsTrigger value="minha" className="gap-2 text-xs sm:text-sm">
                 <UserCheck className="size-4 text-primary" />
                 <span>Meus Atendimentos</span>
@@ -356,18 +357,24 @@ function ListaChamadosPage() {
                   </span>
                 )}
               </TabsTrigger>
-              {podeVerTodos && (
-                <TabsTrigger value="todas" className="gap-2 text-xs sm:text-sm">
-                  <Layers className="size-4" />
-                  <span>Todos os Chamados</span>
-                </TabsTrigger>
-              )}
             </TabsList>
           </Tabs>
         )}
 
+        {/* Banner informativo quando na tela Todos os Chamados */}
+        {isTodosChamados && (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/20 bg-primary-soft/40 p-3 text-xs text-foreground">
+            <div className="flex items-center gap-2">
+              <Layers className="size-4 text-primary" />
+              <span>
+                Visualizando <strong>todos os chamados</strong> da instituição em visão global.
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Banner informativo quando na aba Meus Atendimentos */}
-        {search.fila === "minha" && (
+        {!isTodosChamados && (search.fila === "minha" || (!search.fila && podeVerFilas)) && (
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/20 bg-primary-soft/40 p-3 text-xs text-foreground">
             <div className="flex items-center gap-2">
               <UserCheck className="size-4 text-primary" />
@@ -393,7 +400,7 @@ function ListaChamadosPage() {
         )}
 
         {/* Banner informativo quando na aba Chamados Resolvidos */}
-        {search.fila === "resolvidos" && (
+        {!isTodosChamados && search.fila === "resolvidos" && (
           <div className="flex flex-wrap items-center gap-3 rounded-lg border border-green-200 bg-green-50 p-3 text-xs text-foreground dark:border-green-900 dark:bg-green-950/30">
             <div className="flex items-center gap-2">
               <CheckCheck className="size-4 text-green-600" />
