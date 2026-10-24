@@ -5,13 +5,13 @@ import { logErroFront } from "./logger";
 import type { ApiResponse } from "@/types";
 
 export function getApiBaseUrl(): string {
-  const envUrl = (import.meta.env["VITE_API_BASE_URL"] as string | undefined) ?? (import.meta.env["VITE_API_URL"] as string | undefined) ?? "";
+  const envUrl = (import.meta.env["VITE_API_BASE_URL"] as string | undefined) ?? (import.meta.env["VITE_API_URL"] as string | undefined) ?? (import.meta.env.PROD ? "https://p01--thickethub-api--b8m77p5cmvqj.code.run/api" : "");
   if (!envUrl) return "";
   if (
     typeof window !== "undefined" &&
     window.location.hostname &&
-    window.location.hostname !== "localhost" &&
-    window.location.hostname !== "127.0.0.1"
+    /^(\d{1,3}\.){3}\d{1,3}$/.test(window.location.hostname) &&
+    /localhost|127\.0\.0\.1/.test(envUrl)
   ) {
     // Quando acessado por IP da rede local (ex: 10.26.4.137), substitui localhost pelo host acessado
     return envUrl.replace(/localhost|127\.0\.0\.1/, window.location.hostname);
@@ -19,7 +19,7 @@ export function getApiBaseUrl(): string {
   return envUrl;
 }
 
-export const API_BASE_URL = (import.meta.env["VITE_API_BASE_URL"] as string | undefined) ?? (import.meta.env["VITE_API_URL"] as string | undefined) ?? "";
+export const API_BASE_URL = (import.meta.env["VITE_API_BASE_URL"] as string | undefined) ?? (import.meta.env["VITE_API_URL"] as string | undefined) ?? (import.meta.env.PROD ? "https://p01--thickethub-api--b8m77p5cmvqj.code.run/api" : "");
 /** Sem VITE_API_BASE_URL configurada, a aplicação roda com dados de demonstração locais. */
 export const USANDO_DEMO = API_BASE_URL.trim() === "";
 
