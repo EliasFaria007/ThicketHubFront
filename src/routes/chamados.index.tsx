@@ -179,27 +179,30 @@ function ListaChamadosPage() {
   const contagemMinha = useQuery({
     queryKey: ["chamados", "contagem-minha", user?.id],
     queryFn: () => listarChamados({ fila: "minha", limit: 1, page: 1 }),
-    enabled: podeVerFilas,
-    staleTime: 30_000,
-    refetchInterval: 30_000,
+    enabled: podeVerFilas && !isTodosChamados,
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: false,
   });
   const totalAssumidos = contagemMinha.data?.total ?? 0;
 
   const contagemGeral = useQuery({
     queryKey: ["chamados", "contagem-geral"],
     queryFn: () => listarChamados({ fila: "geral", limit: 1, page: 1 }),
-    enabled: podeVerFilas,
-    staleTime: 30_000,
-    refetchInterval: 30_000,
+    enabled: podeVerFilas && !isTodosChamados,
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: false,
   });
   const totalFilaGeral = contagemGeral.data?.total ?? 0;
 
   const contagemResolvidos = useQuery({
     queryKey: ["chamados", "contagem-resolvidos", user?.id],
     queryFn: () => listarChamados({ fila: "resolvidos", limit: 1, page: 1 }),
-    enabled: podeVerFilas,
-    staleTime: 30_000,
-    refetchInterval: 30_000,
+    enabled: podeVerFilas && !isTodosChamados,
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: false,
   });
   const totalResolvidos = contagemResolvidos.data?.total ?? 0;
 

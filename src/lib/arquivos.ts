@@ -20,7 +20,7 @@ export async function arquivoParaAnexo(file: File): Promise<Anexo> {
  */
 function lerEOtimizarImagem(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
-    // Se não for imagem padrão navegável, lê como DataURL direto
+    // Se não for imagem comum, lê como DataURL direto (ex: SVG, documentos)
     if (!file.type.startsWith("image/") || file.type === "image/svg+xml") {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result as string);
@@ -38,17 +38,20 @@ function lerEOtimizarImagem(file: File): Promise<string> {
         const MAX_DIM = 1600;
         let { width, height } = img;
 
-        if (width <= MAX_DIM && height <= MAX_DIM) {
+        // Se já for pequena (< 200KB) e com dimensões contidas, mantém original
+        if (width <= MAX_DIM && height <= MAX_DIM && file.size < 200 * 1024) {
           resolve(reader.result as string);
           return;
         }
 
-        if (width > height) {
-          height = Math.round((height * MAX_DIM) / width);
-          width = MAX_DIM;
-        } else {
-          width = Math.round((width * MAX_DIM) / height);
-          height = MAX_DIM;
+        if (width > MAX_DIM || height > MAX_DIM) {
+          if (width > height) {
+            height = Math.round((height * MAX_DIM) / width);
+            width = MAX_DIM;
+          } else {
+            width = Math.round((width * MAX_DIM) / height);
+            height = MAX_DIM;
+          }
         }
 
         const canvas = document.createElement("canvas");
@@ -61,9 +64,22 @@ function lerEOtimizarImagem(file: File): Promise<string> {
         }
 
         ctx.drawImage(img, 0, 0, width, height);
-        // Usa JPEG com qualidade 0.85 para otimização excelente
-        const formato = file.type === "image/png" ? "image/png" : "image/jpeg";
-        const resizedDataUrl = canvas.toDataURL(formato, 0.85);
+
+        // Detecta suporte a webp com fallback para jpeg
+        let formato = "image/webp";
+        try {
+          const test = document.createElement("canvas");
+          test.width = 1;
+          test.height = 1;
+          if (test.toDataURL("image/webp").indexOf("data:image/webp") !== 0) {
+            formato = "image/jpeg";
+          }
+        } catch {
+          formato = "image/jpeg";
+        }
+
+        // Comprime para 80% de qualidade gerando arquivos levíssimos
+        const resizedDataUrl = canvas.toDataURL(formato, 0.8);
         resolve(resizedDataUrl);
       };
       img.src = reader.result as string;
