@@ -194,7 +194,7 @@ http.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   let { token } = tokenProvider();
   if (!token && typeof window !== "undefined") {
     try {
-      const authRaw = window.localStorage.getItem("auth-storage");
+      const authRaw = window.localStorage.getItem("chamados.auth");
       if (authRaw) {
         const parsed = JSON.parse(authRaw);
         token = parsed?.state?.token ?? null;
@@ -285,7 +285,7 @@ async function renovarToken(): Promise<string | null> {
   let { refreshToken } = tokenProvider();
   if (!refreshToken && typeof window !== "undefined") {
     try {
-      const authRaw = window.localStorage.getItem("auth-storage");
+      const authRaw = window.localStorage.getItem("chamados.auth");
       if (authRaw) {
         const parsed = JSON.parse(authRaw);
         refreshToken = parsed?.state?.refreshToken ?? null;
