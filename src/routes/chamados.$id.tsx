@@ -835,7 +835,7 @@ function DetalheChamadoPage() {
                     <ul className="flex flex-wrap gap-2">
                       {imagensComentario.map((file, idx) => (
                         <li
-                          key={${file.name}-}
+                          key={`${file.name}-${idx}`}
                           className="flex items-center gap-1.5 rounded border border-border bg-card px-2 py-1 text-xs"
                         >
                           <span className="max-w-[140px] truncate font-medium text-foreground" title={file.name}>

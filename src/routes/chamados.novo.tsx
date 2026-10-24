@@ -305,7 +305,7 @@ function NovoChamadoPage() {
               <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {imagens.map((file, idx) => (
                   <li
-                    key={${file.name}-}
+                    key={`${file.name}-${idx}`}
                     className="group relative overflow-hidden rounded-md border border-border bg-card p-2"
                   >
                     <div className="flex items-center justify-between gap-1 text-xs">

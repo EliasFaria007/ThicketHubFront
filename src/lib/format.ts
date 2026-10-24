@@ -61,3 +61,6 @@ export function iniciais(nome?: string | null): string {
     .map((parte) => parte[0]?.toUpperCase() ?? "")
     .join("");
 }
+
+/** Alias para compatibilidade — mesmo que tamanhoArquivo */
+export const formatarTamanho = tamanhoArquivo;
