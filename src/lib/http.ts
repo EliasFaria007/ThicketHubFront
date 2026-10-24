@@ -5,7 +5,7 @@ import { logErroFront } from "./logger";
 import type { ApiResponse } from "@/types";
 
 export function getApiBaseUrl(): string {
-  const envUrl = (import.meta.env["VITE_API_BASE_URL"] as string | undefined) ?? "";
+  const envUrl = (import.meta.env["VITE_API_BASE_URL"] as string | undefined) ?? (import.meta.env["VITE_API_URL"] as string | undefined) ?? "";
   if (!envUrl) return "";
   if (
     typeof window !== "undefined" &&
@@ -19,7 +19,7 @@ export function getApiBaseUrl(): string {
   return envUrl;
 }
 
-export const API_BASE_URL = (import.meta.env["VITE_API_BASE_URL"] as string | undefined) ?? "";
+export const API_BASE_URL = (import.meta.env["VITE_API_BASE_URL"] as string | undefined) ?? (import.meta.env["VITE_API_URL"] as string | undefined) ?? "";
 /** Sem VITE_API_BASE_URL configurada, a aplicação roda com dados de demonstração locais. */
 export const USANDO_DEMO = API_BASE_URL.trim() === "";
 
