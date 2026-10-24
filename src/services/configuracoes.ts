@@ -175,7 +175,7 @@ export async function obterDominiosInstitucionais(): Promise<ConfigDominios> {
   } catch (err) {
     console.warn("[DOMINIOS] Falha ao consultar back-end, usando padrão local:", err);
   }
-  return { dominios: ["defensoria.mg.gov.br", "dpmg.def.br"], padrao: "defensoria.mg.gov.br" };
+  return { dominios: ["defensoria.mg.def.br", "defensoria.mg.gov.br", "dpmg.def.br"], padrao: "defensoria.mg.def.br" };
 }
 
 export async function salvarDominiosInstitucionais(payload: ConfigDominios): Promise<ConfigDominios> {
