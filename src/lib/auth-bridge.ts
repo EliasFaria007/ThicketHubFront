@@ -11,8 +11,18 @@ configurarAuthHttp({
   onRefreshed: (tokens) => useAuthStore.getState().atualizarTokens(tokens),
   onLogout: () => {
     useAuthStore.getState().sair();
-    if (typeof window !== "undefined" && window.location.pathname !== "/login") {
-      window.location.assign("/login");
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.clear();
+        window.sessionStorage.clear();
+        window.sessionStorage.setItem("logout_manual", "true");
+      } catch {}
+      if ("caches" in window) {
+        window.caches.keys().then((keys) => Promise.all(keys.map((k) => window.caches.delete(k)))).catch(() => {});
+      }
+      if (window.location.pathname !== "/login") {
+        window.location.replace("/login");
+      }
     }
   },
 });

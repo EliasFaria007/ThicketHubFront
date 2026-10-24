@@ -98,13 +98,36 @@ export function AppLayout({
     return podeExecutar(user?.papel, item.permissao);
   });
 
-  function handleSair() {
+  async function handleSair() {
     queryClient.clear();
     sair();
     if (typeof window !== "undefined") {
-      sessionStorage.clear();
+      try {
+        window.localStorage.clear();
+      } catch (e) {
+        console.warn("Erro ao limpar localStorage:", e);
+      }
+
+      try {
+        window.sessionStorage.clear();
+        window.sessionStorage.setItem("logout_manual", "true");
+      } catch (e) {
+        console.warn("Erro ao limpar sessionStorage:", e);
+      }
+
+      if ("caches" in window) {
+        try {
+          const keys = await window.caches.keys();
+          await Promise.all(keys.map((k) => window.caches.delete(k)));
+        } catch (e) {
+          console.warn("Erro ao limpar caches:", e);
+        }
+      }
+
+      window.location.replace("/login");
+    } else {
+      void router.navigate({ to: "/login", replace: true });
     }
-    void router.navigate({ to: "/login", replace: true });
   }
 
   return (
