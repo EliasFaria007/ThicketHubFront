@@ -1,7 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { Building2, Loader2, Lock, Mail } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { z } from "zod";
 
 import { MensagemErro } from "@/components/comum/MensagemErro";
@@ -49,6 +49,7 @@ function LoginPage() {
   const [erros, setErros] = useState<{ email?: string | undefined; password?: string | undefined }>({});
   const [erroMicrosoft, setErroMicrosoft] = useState<string | null>(null);
   const [tentandoSsoSilencioso, setTentandoSsoSilencioso] = useState(false);
+  const authEmProcessamentoRef = useRef(false);
 
   useEffect(() => {
     if (hidratado && token) void router.navigate({ to: "/", replace: true });
@@ -66,11 +67,13 @@ function LoginPage() {
   const mutationMicrosoft = useMutation({
     mutationFn: loginMicrosoft,
     onSuccess: (data) => {
+      authEmProcessamentoRef.current = false;
       if (typeof window !== "undefined") window.sessionStorage.removeItem("logout_manual");
       entrar(data);
       void router.navigate({ to: "/", replace: true });
     },
     onError: (err: any) => {
+      authEmProcessamentoRef.current = false;
       setTentandoSsoSilencioso(false);
       const msg = err?.response?.data?.message || err?.message || "Não foi possível autenticar com a conta Microsoft.";
       setErroMicrosoft(msg);
@@ -111,6 +114,8 @@ function LoginPage() {
 
         const emailHint = valores.email.trim();
         if (idToken || code) {
+          if (authEmProcessamentoRef.current) return;
+          authEmProcessamentoRef.current = true;
           mutationMicrosoft.mutate({
             idToken: idToken || code || "",
             ...(emailHint ? { email: emailHint } : {}),
@@ -254,6 +259,8 @@ function LoginPage() {
           }
 
           if (idToken) {
+            if (authEmProcessamentoRef.current) return;
+            authEmProcessamentoRef.current = true;
             mutationMicrosoft.mutate({
               idToken,
               ...(emailHint ? { email: emailHint } : {}),
