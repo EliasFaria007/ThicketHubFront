@@ -1183,7 +1183,11 @@ const rotas: Rota[] = [
       const u = atorAtual();
       if (u.papel === "usuario") return erro(403, "Ação restrita à equipe técnica.");
       if (!visivelPara(chamado, u)) return erro(403, "Chamado fora dos seus setores liberados.");
-      if (chamado.tecnico) return erro(409, "Este chamado já foi assumido por outro técnico.");
+      if (chamado.tecnico) {
+        const msg = `Chamado assumido pelo técnico: ${chamado.tecnico.nome}`;
+        notificar(chamado, "atribuicao", msg);
+        return erro(409, msg);
+      }
       chamado.tecnico = { id: u.id, nome: u.nome };
       chamado.filaSetor = null;
       historico(chamado, "assuncao", `${u.nome} assumiu o chamado`);

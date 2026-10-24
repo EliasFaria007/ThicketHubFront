@@ -259,7 +259,11 @@ function DetalheChamadoPage() {
   const assumir = useMutation({
     mutationFn: () => assumirChamado(id),
     onSuccess: () => sucesso("Chamado na sua fila"),
-    onError: falha,
+    onError: (erro: Error) => {
+      toast.error(erro.message || "Não foi possível assumir o chamado.");
+      void queryClient.invalidateQueries({ queryKey: ["chamados"] });
+      void queryClient.invalidateQueries({ queryKey: ["notificacoes"] });
+    },
   });
 
   const pausar = useMutation({

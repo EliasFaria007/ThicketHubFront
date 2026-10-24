@@ -216,7 +216,11 @@ function ListaChamadosPage() {
       void queryClient.invalidateQueries({ queryKey: ["chamados"] });
       void queryClient.invalidateQueries({ queryKey: ["notificacoes"] });
     },
-    onError: (erro: Error) => toast.error("Não foi possível assumir", { description: erro.message }),
+    onError: (erro: Error) => {
+      toast.error(erro.message || "Não foi possível assumir o chamado.");
+      void queryClient.invalidateQueries({ queryKey: ["chamados"] });
+      void queryClient.invalidateQueries({ queryKey: ["notificacoes"] });
+    },
   });
 
   const pausarRetomar = useMutation({
