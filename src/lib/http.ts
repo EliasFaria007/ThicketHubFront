@@ -191,7 +191,18 @@ export function configurarAuthHttp(handlers: {
 }
 
 http.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-  const { token } = tokenProvider();
+  let { token } = tokenProvider();
+  if (!token && typeof window !== "undefined") {
+    try {
+      const authRaw = window.localStorage.getItem("auth-storage");
+      if (authRaw) {
+        const parsed = JSON.parse(authRaw);
+        token = parsed?.state?.token ?? null;
+      }
+    } catch {
+      // Ignora erro de parsing
+    }
+  }
   if (token) config.headers.set("Authorization", `Bearer ${token}`);
 
   if (!USANDO_DEMO) {
@@ -271,18 +282,33 @@ function mensagemAmigavel(error: AxiosError<ApiResponse<unknown>>): ApiError {
 let refreshEmAndamento: Promise<string | null> | null = null;
 
 async function renovarToken(): Promise<string | null> {
-  const { refreshToken } = tokenProvider();
+  let { refreshToken } = tokenProvider();
+  if (!refreshToken && typeof window !== "undefined") {
+    try {
+      const authRaw = window.localStorage.getItem("auth-storage");
+      if (authRaw) {
+        const parsed = JSON.parse(authRaw);
+        refreshToken = parsed?.state?.refreshToken ?? null;
+      }
+    } catch {
+      // Ignora erro
+    }
+  }
   if (!refreshToken) return null;
   try {
-    const { data } = await axios.request<ApiResponse<{ token: string; refreshToken: string }>>({
+    const res = await axios.request<any>({
       ...(USANDO_DEMO ? { adapter: mockAdapter, baseURL: "/demo-api" } : { baseURL: getApiBaseUrl() }),
       url: "/auth/refresh",
       method: "POST",
       data: { refreshToken },
     });
-    if (!data.success) return null;
-    onRefreshed(data.data);
-    return data.data.token;
+    const envelope = res?.data;
+    const dados = envelope?.data ?? envelope;
+    const novoAccessToken = (dados?.accessToken as string | undefined) || (dados?.token as string | undefined);
+    const novoRefreshToken = (dados?.refreshToken as string | undefined) || refreshToken;
+    if (!novoAccessToken) return null;
+    onRefreshed({ token: novoAccessToken, refreshToken: novoRefreshToken });
+    return novoAccessToken;
   } catch {
     return null;
   }

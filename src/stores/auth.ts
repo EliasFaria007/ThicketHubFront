@@ -14,7 +14,7 @@ interface AuthState {
    * back-end Java (accessToken + campos de usuário no nível raiz).
    */
   entrar: (payload: LoginResponse | { token: string; refreshToken: string; user: User }) => void;
-  atualizarTokens: (payload: { token: string; refreshToken: string }) => void;
+  atualizarTokens: (payload: { token?: string; accessToken?: string; refreshToken: string }) => void;
   atualizarUsuario: (user: User) => void;
   sair: () => void;
 }
@@ -84,7 +84,7 @@ export const useAuthStore = create<AuthState>()(
           set({ token, refreshToken, user });
         }
       },
-      atualizarTokens: ({ token, refreshToken }) => set({ token, refreshToken }),
+      atualizarTokens: (tokens) => set({ token: tokens.accessToken || tokens.token, refreshToken: tokens.refreshToken }),
       atualizarUsuario: (atualizado) =>
         set((state) => {
           if (!state.user) return { user: atualizado };
