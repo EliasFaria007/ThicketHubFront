@@ -55,6 +55,8 @@ export function TextoFormatadoComAssinatura({
               <img
                 src={imagem}
                 alt="Assinatura gráfica"
+                loading="lazy"
+                decoding="async"
                 className="max-h-24 max-w-xs object-contain print:max-h-14"
               />
             </button>

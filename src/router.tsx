@@ -7,9 +7,10 @@ export const getRouter = () => {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: {
-        staleTime: 20_000, // 20s de dados frescos para evitar refetch imediato entre telas
+        staleTime: 30_000, // 30s de dados frescos para evitar refetch desnecessário entre navegações
         gcTime: 10 * 60 * 1000, // 10 minutos em cache de memória
         refetchOnWindowFocus: false, // Evita requisições repetidas ao alternar de janela
+        refetchOnReconnect: "always",
         retry: 1,
       },
     },

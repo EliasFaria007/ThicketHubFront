@@ -1,4 +1,4 @@
-import pptxgen from "pptxgenjs";
+import type pptxgen from "pptxgenjs";
 import { PRIORIDADE_LABEL } from "./dominio";
 import { calcularMetricasExecutivas } from "./exportacao-pdf";
 import type { FiltrosRelatorio, PrioridadeChamado, Relatorios } from "@/types";
@@ -137,7 +137,8 @@ export async function exportarRelatorioExecutivoPptx({
   filtros,
   usuarioLogado,
 }: OpcoesExportacaoPptx): Promise<void> {
-  pptx = new pptxgen();
+  const { default: PptxGenClass } = await import("pptxgenjs");
+  pptx = new PptxGenClass();
 
   pptx.layout = "LAYOUT_16x9";
   pptx.author = usuarioLogado?.nome || "ThicketHub";

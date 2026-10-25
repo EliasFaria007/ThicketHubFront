@@ -20,7 +20,6 @@ import {
 } from "@/components/ui/dialog";
 import { PRIORIDADE_LABEL, STATUS_LABEL } from "@/lib/dominio";
 import { calcularMetricasExecutivas } from "@/lib/exportacao-pdf";
-import { exportarRelatorioExecutivoPptx } from "@/lib/exportacao-pptx";
 import type { FiltrosRelatorio, PrioridadeChamado, Relatorios, StatusChamado } from "@/types";
 
 interface ModalRelatorioExecutivoProps {
@@ -149,6 +148,7 @@ export function ModalRelatorioExecutivo({
   async function exportarPowerPoint() {
     try {
       setExportandoPptx(true);
+      const { exportarRelatorioExecutivoPptx } = await import("@/lib/exportacao-pptx");
       await exportarRelatorioExecutivoPptx({
         relatorios,
         filtros,

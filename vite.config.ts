@@ -34,6 +34,9 @@ export default defineConfig(({ command }) => ({
       output: {
         manualChunks(id) {
           if (id.includes("node_modules")) {
+            if (id.includes("pptxgenjs")) {
+              return "vendor-pptx";
+            }
             if (id.includes("recharts") || id.includes("d3-")) {
               return "vendor-charts";
             }

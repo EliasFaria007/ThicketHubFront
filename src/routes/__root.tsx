@@ -93,6 +93,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [
+      { rel: "preconnect", href: "https://api.thickethub.dev.br" },
+      { rel: "dns-prefetch", href: "https://api.thickethub.dev.br" },
       {
         rel: "stylesheet",
         href: appCss,

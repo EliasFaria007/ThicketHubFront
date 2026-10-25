@@ -522,6 +522,8 @@ function DetalheChamadoPage() {
                             <img
                               src={anexo.url}
                               alt={anexo.nome}
+                              loading="lazy"
+                              decoding="async"
                               className="max-h-full max-w-full rounded object-contain transition-transform duration-200 group-hover:scale-105"
                             />
                           </button>
