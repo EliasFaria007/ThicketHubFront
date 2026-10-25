@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, Copy, Download, FileText, Paperclip, Printer, ShieldCheck, X } from "lucide-react";
+import { Check, Copy, FileText, Printer, ShieldCheck, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -7,7 +7,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { TextoFormatadoComAssinatura } from "@/components/chamados/TextoFormatadoComAssinatura";
@@ -31,8 +30,194 @@ export function ModalOrdemServico({
   const [copiado, setCopiado] = useState(false);
   const os = obterDadosOrdemServico(chamado, usuarioLogado);
 
+  const PRINT_CSS = `
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    @page { size: A4; margin: 15mm 12mm; }
+    body { font-family: system-ui, -apple-system, sans-serif; font-size: 11pt; color: #111; background: #fff; }
+    h1 { font-size: 18pt; font-weight: 700; margin-bottom: 4px; }
+    h2 { font-size: 9pt; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; border-bottom: 1px solid #ccc; padding-bottom: 4px; margin-bottom: 8px; }
+    p, span, div { line-height: 1.5; }
+    section { margin-bottom: 18px; break-inside: avoid; page-break-inside: avoid; }
+    header { border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+    footer { border-top: 1px solid #ccc; padding-top: 10px; text-align: center; font-size: 8pt; color: #666; margin-top: 20px; }
+    .brand { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+    .brand-badge { display: inline-flex; width: 26px; height: 26px; align-items: center; justify-content: center; background: #6366f1; color: #fff; font-weight: 900; font-size: 11pt; border-radius: 6px; }
+    .brand-name { font-size: 8pt; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: #6366f1; }
+    .proto-box { border: 1px solid #e2e8f0; background: #f8fafc; border-radius: 6px; padding: 8px 12px; text-align: right; font-size: 8pt; min-width: 160px; }
+    .proto-box .label { font-weight: 600; text-transform: uppercase; font-size: 7pt; color: #64748b; display: block; }
+    .proto-box .value { font-family: monospace; font-size: 12pt; font-weight: 700; display: block; }
+    .proto-box .sub { font-size: 7pt; color: #64748b; margin-top: 2px; display: block; }
+    .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; font-size: 9pt; }
+    .info-item { margin-bottom: 4px; }
+    .info-label { font-weight: 600; color: #64748b; }
+    .desc-box { border: 1px solid #e8e8e8; border-radius: 6px; padding: 10px; font-size: 9pt; white-space: pre-wrap; line-height: 1.6; background: #fff; }
+    .desc-title { font-weight: 600; margin-bottom: 6px; font-size: 10pt; }
+    .attachments-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .attachment-card { border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden; font-size: 8pt; break-inside: avoid; }
+    .attachment-img-box { height: 90px; display: flex; align-items: center; justify-content: center; background: #f1f5f9; padding: 6px; }
+    .attachment-img-box img { max-width: 100%; max-height: 100%; object-fit: contain; }
+    .attachment-icon-box { height: 64px; display: flex; align-items: center; justify-content: center; background: #f1f5f9; }
+    .attachment-info { display: flex; justify-content: space-between; padding: 4px 8px; border-top: 1px solid #e2e8f0; background: #fff; }
+    .attachment-name { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 80%; }
+    .attachment-size { color: #64748b; flex-shrink: 0; }
+    .record-card { border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px; margin-bottom: 10px; font-size: 9pt; break-inside: avoid; background: #fff; }
+    .record-header { display: flex; justify-content: space-between; border-bottom: 1px solid #e8e8e8; padding-bottom: 6px; margin-bottom: 8px; font-size: 8pt; color: #64748b; }
+    .record-header strong { color: #111; }
+    .record-content { white-space: pre-wrap; line-height: 1.6; }
+    .record-content img { max-width: 100%; max-height: 200px; object-fit: contain; border-radius: 4px; margin: 6px 0; display: block; break-inside: avoid; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .sign-term { border: 1px solid #e2e8f0; border-radius: 6px; background: #f8fafc; padding: 10px; font-size: 8pt; color: #475569; margin-bottom: 16px; }
+    .sign-term strong { color: #111; display: block; margin-bottom: 4px; font-size: 9pt; }
+    .sign-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; }
+    .sign-box { display: flex; flex-direction: column; align-items: center; text-align: center; }
+    .sign-image-wrap { width: 200px; height: 64px; display: flex; align-items: center; justify-content: center; border: 1px solid #e2e8f0; border-radius: 4px; background: #fff; padding: 4px; margin-bottom: 6px; }
+    .sign-image-wrap img { max-width: 100%; max-height: 100%; object-fit: contain; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .sign-dashed { width: 200px; height: 56px; border-bottom: 1.5px dashed #555; margin-bottom: 6px; }
+    .sign-line { width: 100%; border-top: 1px solid #bbb; padding-top: 6px; font-size: 9pt; font-weight: 600; }
+    .sign-role { font-size: 7.5pt; color: #64748b; margin-top: 2px; }
+    .no-records { border: 1.5px dashed #e2e8f0; border-radius: 6px; padding: 12px; text-align: center; font-size: 9pt; color: #64748b; }
+    img { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  `;
+
   function imprimir() {
-    window.print();
+    const isImg = (nome?: string, url?: string) =>
+      /\.(png|jpe?g|gif|webp|svg|avif|bmp)(\?|$)/i.test(nome || url || "");
+
+    const escHtml = (s: string) =>
+      s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+    const registrosHtml = os.registrosAtendimento
+      .map(
+        (reg, idx) => `
+        <div class="record-card">
+          <div class="record-header">
+            <strong>Registro #${idx + 1} — ${escHtml(reg.autor || "Técnico")} ${reg.setor ? `(${escHtml(reg.setor)})` : ""}</strong>
+            <span>${escHtml(reg.data || "Data não especificada")}</span>
+          </div>
+          <div class="record-content">${escHtml(reg.conteudo)}</div>
+        </div>`,
+      )
+      .join("");
+
+    const anexosHtml =
+      os.anexos.length > 0
+        ? `<section>
+          <h2>${os.anexos.length > 0 && os.registrosAtendimento.length >= 0 ? "2" : "2"}. Anexos e Evidências Vinculadas (${os.anexos.length})</h2>
+          <div class="attachments-grid">
+            ${os.anexos
+              .map((anexo) => {
+                const img = isImg(anexo.nome, anexo.url);
+                return `<div class="attachment-card">
+                  ${img ? `<div class="attachment-img-box"><img src="${escHtml(anexo.url)}" alt="${escHtml(anexo.nome)}" /></div>` : `<div class="attachment-icon-box"><span style="font-size:24pt;color:#94a3b8">📎</span></div>`}
+                  <div class="attachment-info">
+                    <span class="attachment-name" title="${escHtml(anexo.nome)}">${escHtml(anexo.nome)}</span>
+                    ${anexo.tamanho ? `<span class="attachment-size">${escHtml(formatarTamanho(anexo.tamanho))}</span>` : ""}
+                  </div>
+                </div>`;
+              })
+              .join("")}
+          </div>
+        </section>`
+        : "";
+
+    const assinaturaHtml = os.temAssinaturaDigital && os.assinaturaImagem
+      ? `<div class="sign-image-wrap"><img src="${escHtml(os.assinaturaImagem)}" alt="Assinatura do Técnico" /></div>
+         <span style="font-size:7.5pt;color:#16a34a;margin-bottom:6px">✔ Assinado Digitalmente</span>`
+      : `<div class="sign-dashed"></div>`;
+
+    const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<title>OS-${escHtml(os.protocolo)}</title>
+<style>${PRINT_CSS}</style>
+</head>
+<body>
+<div class="brand">
+  <span class="brand-badge">TH</span>
+  <span class="brand-name">ThicketHub · Central de Atendimento</span>
+</div>
+<header>
+  <div>
+    <h1>ORDEM DE SERVIÇO TÉCNICO</h1>
+    <p style="font-size:9pt;color:#64748b">Registro formal de atendimento, execução e conformidade de SLA</p>
+  </div>
+  <div class="proto-box">
+    <span class="label">Protocolo</span>
+    <span class="value">#${escHtml(os.protocolo)}</span>
+    <span class="sub">Emissão: ${escHtml(os.emitidoEmFormatado)}</span>
+  </div>
+</header>
+
+<div class="info-grid" style="margin-bottom:18px">
+  <div>
+    <div class="info-item"><span class="info-label">Solicitante: </span><strong>${escHtml(os.solicitanteNome)}</strong></div>
+    ${os.solicitanteEmail ? `<div class="info-item"><span class="info-label">E-mail: </span>${escHtml(os.solicitanteEmail)}</div>` : ""}
+    <div class="info-item"><span class="info-label">Setor de Origem: </span>${escHtml(os.setor)}</div>
+    <div class="info-item"><span class="info-label">Data/Hora Abertura: </span>${escHtml(os.criadoEmFormatado)}</div>
+  </div>
+  <div>
+    <div class="info-item"><span class="info-label">Técnico Responsável: </span><strong>${escHtml(os.tecnicoNome)}</strong></div>
+    <div class="info-item"><span class="info-label">Serviço / Demanda: </span>${escHtml(os.servicoNome)}</div>
+    <div class="info-item"><span class="info-label">Status / Prioridade: </span>${escHtml(os.statusFormatado)} · ${escHtml(os.prioridadeFormatada)}</div>
+    <div class="info-item"><span class="info-label">Situação do SLA: </span><strong>${escHtml(os.slaStatus)}</strong>${os.resolvidoEmFormatado ? ` (em ${escHtml(os.resolvidoEmFormatado)})` : ""}</div>
+  </div>
+</div>
+
+<section>
+  <h2>1. Descrição Inicial da Demanda</h2>
+  <div class="desc-box">
+    <p class="desc-title">${escHtml(os.titulo)}</p>
+    ${escHtml(os.descricaoLimpa)}
+  </div>
+</section>
+
+${anexosHtml}
+
+<section>
+  <h2>${os.anexos.length > 0 ? "3" : "2"}. Procedimentos e Histórico Técnico de Atendimento</h2>
+  ${registrosHtml || `<div class="no-records">Nenhum registro de atendimento detalhado foi gravado neste chamado.</div>`}
+</section>
+
+<section style="border-top:1px solid #ccc;padding-top:16px">
+  <div class="sign-term">
+    <strong>Termo de Encerramento e Aceite:</strong>
+    Declaro para os devidos fins que o atendimento técnico supra identificado foi executado em conformidade com as normas institucionais e que os serviços foram entregues de acordo com o escopo solicitado.
+  </div>
+  <div class="sign-grid">
+    <div class="sign-box">
+      ${assinaturaHtml}
+      <div class="sign-line">${escHtml(os.tecnicoNome)}</div>
+      <div class="sign-role">Técnico Responsável / Matrícula</div>
+    </div>
+    <div class="sign-box">
+      <div class="sign-dashed"></div>
+      <div class="sign-line">${escHtml(os.solicitanteNome)}</div>
+      <div class="sign-role">Solicitante / Responsável pelo Recebimento</div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <p>Documento gerado eletronicamente pela Central ThicketHub em ${escHtml(os.emitidoEmFormatado)}${os.emitidoPor ? ` por ${escHtml(os.emitidoPor)}` : ""}.</p>
+  <p style="font-family:monospace;font-size:7.5pt;margin-top:2px">Hash de Validação: ${escHtml(os.protocolo)}-${chamado.id.toString().padStart(6, "0")} · Autenticidade verificável no sistema</p>
+</footer>
+</body>
+</html>`;
+
+    const blob = new Blob([html], { type: "text/html; charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const win = window.open(url, "_blank", "width=920,height=740,menubar=no,toolbar=no");
+    if (!win) {
+      toast.error("Permita pop-ups neste site para imprimir a Ordem de Serviço.");
+      URL.revokeObjectURL(url);
+      return;
+    }
+    win.addEventListener("load", () => {
+      setTimeout(() => {
+        win.print();
+        URL.revokeObjectURL(url);
+      }, 400);
+    });
   }
 
   async function copiarTexto() {

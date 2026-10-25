@@ -1,17 +1,9 @@
 import { useState } from "react";
 import {
-  Award,
   BarChart3,
   Check,
-  CheckCircle2,
-  Clock,
   Copy,
-  FileSpreadsheet,
-  FileText,
   Printer,
-  ShieldAlert,
-  Star,
-  Users,
   X,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -21,7 +13,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { PRIORIDADE_LABEL, STATUS_LABEL } from "@/lib/dominio";
@@ -64,7 +55,195 @@ export function ModalRelatorioExecutivo({
           : "Todo o histórico apurado";
 
   function imprimir() {
-    window.print();
+    const escHtml = (s: string) =>
+      String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+
+    const PRINT_CSS = `
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+      @page { size: A4; margin: 15mm 12mm; }
+      body { font-family: system-ui, -apple-system, sans-serif; font-size: 11pt; color: #111; background: #fff; }
+      h1 { font-size: 18pt; font-weight: 700; margin-bottom: 4px; }
+      h2 { font-size: 9pt; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; border-bottom: 1px solid #ccc; padding-bottom: 4px; margin-bottom: 10px; }
+      section { margin-bottom: 20px; break-inside: avoid; page-break-inside: avoid; }
+      header { border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 18px; display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; }
+      footer { border-top: 1px solid #ccc; padding-top: 10px; text-align: center; font-size: 8pt; color: #666; margin-top: 20px; }
+      .brand { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+      .brand-badge { display: inline-flex; width: 26px; height: 26px; align-items: center; justify-content: center; background: #6366f1; color: #fff; font-weight: 900; font-size: 11pt; border-radius: 6px; }
+      .brand-name { font-size: 8pt; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: #6366f1; }
+      .period-box { border: 1px solid #e2e8f0; background: #f8fafc; border-radius: 6px; padding: 8px 12px; text-align: right; font-size: 8pt; min-width: 180px; }
+      .period-box .label { font-weight: 600; text-transform: uppercase; font-size: 7pt; color: #64748b; display: block; }
+      .period-box .value { font-weight: 600; display: block; font-size: 9pt; }
+      .period-box .sub { font-size: 7pt; color: #64748b; margin-top: 2px; display: block; }
+      .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 4px; }
+      .kpi-card { border: 1px solid #e2e8f0; background: #f8fafc; border-radius: 6px; padding: 10px; text-align: center; }
+      .kpi-label { font-size: 7.5pt; font-weight: 600; text-transform: uppercase; color: #64748b; display: block; margin-bottom: 4px; }
+      .kpi-value { font-size: 20pt; font-weight: 700; color: #111; display: block; }
+      .kpi-sub { font-size: 7.5pt; color: #64748b; margin-top: 2px; display: block; }
+      table { width: 100%; border-collapse: collapse; font-size: 9pt; }
+      thead { background: #f1f5f9; }
+      th { padding: 6px 10px; text-align: left; font-weight: 600; color: #475569; border-bottom: 1px solid #e2e8f0; }
+      th:not(:first-child) { text-align: right; }
+      td { padding: 6px 10px; border-bottom: 1px solid #f1f5f9; }
+      td:not(:first-child) { text-align: right; }
+      tr:last-child td { border-bottom: none; }
+      .table-wrap { border: 1px solid #e2e8f0; border-radius: 6px; overflow: hidden; }
+    `;
+
+    const setorRows = (relatorios.porSetor || [])
+      .map((s) => {
+        const pct = s.total > 0 ? Math.round((s.resolvidos / s.total) * 100) : 0;
+        return `<tr>
+          <td><strong>${escHtml(s.chave)}</strong></td>
+          <td>${s.total}</td>
+          <td>${s.resolvidos}</td>
+          <td>${s.atrasados}</td>
+          <td>${pct}%</td>
+        </tr>`;
+      })
+      .join("") || `<tr><td colspan="5" style="text-align:center;color:#64748b;padding:12px">Nenhum chamado no período.</td></tr>`;
+
+    const slaRows = (relatorios.porPrioridade || [])
+      .map((p) => {
+        const violados = Math.max(0, p.slaTotal - p.slaCumprido);
+        const pct = p.slaTotal > 0 ? Math.round((p.slaCumprido / p.slaTotal) * 100) : 100;
+        return `<tr>
+          <td><strong>${escHtml(PRIORIDADE_LABEL[p.chave as PrioridadeChamado] || p.chave)}</strong></td>
+          <td>${p.slaTotal}</td>
+          <td>${p.slaCumprido}</td>
+          <td>${violados}</td>
+          <td>${pct}%</td>
+        </tr>`;
+      })
+      .join("") || `<tr><td colspan="5" style="text-align:center;color:#64748b;padding:12px">Sem dados de SLA no período.</td></tr>`;
+
+    const tecnicoRows = (relatorios.tecnicos || [])
+      .map((t) => {
+        const pct = t.slaTotal > 0 ? Math.round((t.slaCumprido / t.slaTotal) * 100) : 100;
+        return `<tr>
+          <td><strong>${escHtml(t.chave)}</strong></td>
+          <td>${t.atendidos}</td>
+          <td>${t.emAberto}</td>
+          <td>${t.tempoMedioResolucaoHoras.toFixed(1)}h</td>
+          <td>${pct}%</td>
+        </tr>`;
+      })
+      .join("");
+
+    const tecnicosSection = tecnicoRows
+      ? `<section>
+          <h2>4. Desempenho Individual da Equipe Técnica</h2>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Técnico</th><th>Atendidos</th><th>Em Aberto</th><th>Tempo Médio (h)</th><th>SLA Cumprido</th></tr></thead>
+              <tbody>${tecnicoRows}</tbody>
+            </table>
+          </div>
+        </section>`
+      : "";
+
+    const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<title>Relatório Executivo — ThicketHub</title>
+<style>${PRINT_CSS}</style>
+</head>
+<body>
+<div class="brand">
+  <span class="brand-badge">TH</span>
+  <span class="brand-name">ThicketHub · Central de Atendimento e SLA</span>
+</div>
+<header>
+  <div>
+    <h1>RELATÓRIO GERENCIAL EXECUTIVO</h1>
+    <p style="font-size:9pt;color:#64748b">Acompanhamento Operacional, Cumprimento de Metas e Indicadores de Qualidade</p>
+  </div>
+  <div class="period-box">
+    <span class="label">Período</span>
+    <span class="value">${escHtml(periodoTexto)}</span>
+    <span class="sub">Emissão: ${escHtml(agora)}</span>
+    ${usuarioLogado?.nome ? `<span class="sub">Emissor: ${escHtml(usuarioLogado.nome)}</span>` : ""}
+  </div>
+</header>
+
+<section>
+  <h2>1. Painel Geral de Indicadores de Desempenho</h2>
+  <div class="kpi-grid">
+    <div class="kpi-card">
+      <span class="kpi-label">Total Chamados</span>
+      <span class="kpi-value">${metricas.totalChamados}</span>
+    </div>
+    <div class="kpi-card">
+      <span class="kpi-label">Resolvidos</span>
+      <span class="kpi-value">${metricas.totalResolvidos}</span>
+      <span class="kpi-sub">${metricas.taxaResolucaoPercentual}% taxa</span>
+    </div>
+    <div class="kpi-card">
+      <span class="kpi-label">Aderência ao SLA</span>
+      <span class="kpi-value">${metricas.cumprimentoSlaPercentual}%</span>
+      <span class="kpi-sub">Dentro do prazo</span>
+    </div>
+    <div class="kpi-card">
+      <span class="kpi-label">Tempo 1º Atend.</span>
+      <span class="kpi-value" style="font-size:14pt">${escHtml(metricas.tempoMedioAtendimentoFormatado)}</span>
+      <span class="kpi-sub">Média de início</span>
+    </div>
+    <div class="kpi-card">
+      <span class="kpi-label">Tempo Resolução</span>
+      <span class="kpi-value" style="font-size:14pt">${escHtml(metricas.tempoMedioResolucaoFormatado)}</span>
+      <span class="kpi-sub">Média fechamento</span>
+    </div>
+    <div class="kpi-card">
+      <span class="kpi-label">Satisfação CSAT</span>
+      <span class="kpi-value">${metricas.satisfacaoMedia.toFixed(1)} ★</span>
+      <span class="kpi-sub">${metricas.percentualSatisfeitos}% aprovação</span>
+    </div>
+  </div>
+</section>
+
+<section>
+  <h2>2. Distribuição e Resolução por Setor</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Setor</th><th>Chamados</th><th>Resolvidos</th><th>Atrasados</th><th>% Resolução</th></tr></thead>
+      <tbody>${setorRows}</tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2>3. Níveis de Serviço (SLA) por Prioridade</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Prioridade</th><th>Total Apurado</th><th>SLA Cumprido</th><th>SLA Violado</th><th>Aderência %</th></tr></thead>
+      <tbody>${slaRows}</tbody>
+    </table>
+  </div>
+</section>
+
+${tecnicosSection}
+
+<footer>
+  <p>ThicketHub Central de Chamados e Governança de TI · Documento oficial emitido em ${escHtml(agora)}.</p>
+  <p style="font-family:monospace;font-size:7.5pt;margin-top:2px">Chave de integridade: TH-REL-${new Date().getTime().toString(36).toUpperCase()} · Válido para prestação de contas institucional</p>
+</footer>
+</body>
+</html>`;
+
+    const blob = new Blob([html], { type: "text/html; charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const win = window.open(url, "_blank", "width=920,height=740,menubar=no,toolbar=no");
+    if (!win) {
+      toast.error("Permita pop-ups neste site para imprimir o Relatório Executivo.");
+      URL.revokeObjectURL(url);
+      return;
+    }
+    win.addEventListener("load", () => {
+      setTimeout(() => {
+        win.print();
+        URL.revokeObjectURL(url);
+      }, 400);
+    });
   }
 
   async function copiarResumo() {
