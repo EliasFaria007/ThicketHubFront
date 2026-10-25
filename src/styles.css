@@ -258,6 +258,14 @@
     print-color-adjust: exact !important;
   }
 
+  img {
+    max-width: 100% !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
   /* Quando uma modal de documento imprimível está aberta (Ordem de Serviço ou Relatório Executivo) */
   body:has([data-printable-document]) > *:not([data-radix-portal]) {
     display: none !important;

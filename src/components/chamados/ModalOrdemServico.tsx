@@ -10,8 +10,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { TextoFormatadoComAssinatura } from "@/components/chamados/TextoFormatadoComAssinatura";
 import { obterDadosOrdemServico } from "@/lib/exportacao-pdf";
-import { formatarTamanho } from "@/lib/arquivos";
+import { eArquivoImagem, formatarTamanho } from "@/lib/arquivos";
 import type { Chamado } from "@/types";
 
 interface ModalOrdemServicoProps {
@@ -211,21 +212,40 @@ export function ModalOrdemServico({
                 <h2 className="border-b border-border/60 pb-1 text-xs font-bold tracking-wide text-foreground uppercase print:border-neutral-300 print:text-black">
                   2. Anexos e Evidências Vinculadas ({os.anexos.length})
                 </h2>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {os.anexos.map((anexo, idx) => (
-                    <div
-                      key={anexo.id || idx}
-                      className="flex items-center gap-2 rounded border border-border/60 bg-muted/20 px-2.5 py-1.5 text-xs print:border-neutral-300 print:bg-white"
-                    >
-                      <Paperclip className="size-3.5 shrink-0 text-muted-foreground" />
-                      <span className="truncate font-medium">{anexo.nome}</span>
-                      {anexo.tamanho && (
-                        <span className="ml-auto shrink-0 text-[10px] text-muted-foreground">
-                          {formatarTamanho(anexo.tamanho)}
-                        </span>
-                      )}
-                    </div>
-                  ))}
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  {os.anexos.map((anexo, idx) => {
+                    const isImg = eArquivoImagem(anexo.nome, anexo.url);
+                    return (
+                      <div
+                        key={anexo.id || idx}
+                        className="page-break-inside-avoid flex flex-col overflow-hidden rounded-md border border-border/70 bg-card text-xs shadow-2xs print:border-neutral-300 print:bg-white"
+                      >
+                        {isImg ? (
+                          <div className="flex h-32 w-full items-center justify-center bg-muted/20 p-1.5 print:h-28 print:bg-neutral-50">
+                            <img
+                              src={anexo.url}
+                              alt={anexo.nome}
+                              className="max-h-full max-w-full rounded object-contain"
+                            />
+                          </div>
+                        ) : (
+                          <div className="flex h-20 w-full items-center justify-center bg-muted/30 p-2 print:bg-neutral-50">
+                            <FileText className="size-8 text-primary/70" />
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between gap-1 border-t border-border/50 bg-muted/10 p-2 text-[11px] print:border-neutral-200 print:bg-white">
+                          <span className="truncate font-medium text-foreground print:text-black" title={anexo.nome}>
+                            {anexo.nome}
+                          </span>
+                          {anexo.tamanho && (
+                            <span className="shrink-0 text-muted-foreground print:text-neutral-600">
+                              {formatarTamanho(anexo.tamanho)}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </section>
             )}
@@ -248,9 +268,10 @@ export function ModalOrdemServico({
                         </strong>
                         <span>{reg.data || "Data não especificada"}</span>
                       </div>
-                      <div className="whitespace-pre-wrap leading-relaxed text-foreground print:text-black">
-                        {reg.conteudo}
-                      </div>
+                      <TextoFormatadoComAssinatura
+                        conteudo={reg.conteudo}
+                        className="text-xs leading-relaxed text-foreground print:text-black"
+                      />
                     </div>
                   ))}
                 </div>
@@ -273,17 +294,19 @@ export function ModalOrdemServico({
                 <div className="flex flex-col items-center justify-end text-center">
                   {os.temAssinaturaDigital && os.assinaturaImagem ? (
                     <div className="mb-2 flex flex-col items-center">
-                      <img
-                        src={os.assinaturaImagem}
-                        alt="Assinatura do Técnico"
-                        className="h-14 max-w-[200px] object-contain"
-                      />
-                      <span className="flex items-center gap-1 text-[10px] text-emerald-600 print:text-neutral-700">
+                      <div className="flex h-16 w-52 items-center justify-center rounded border border-border/40 bg-white p-1 dark:bg-card print:border-neutral-200">
+                        <img
+                          src={os.assinaturaImagem}
+                          alt="Assinatura do Técnico"
+                          className="max-h-full max-w-full object-contain"
+                        />
+                      </div>
+                      <span className="mt-1 flex items-center gap-1 text-[10px] text-emerald-600 print:text-neutral-700">
                         <ShieldCheck className="size-3" /> Assinado Digitalmente
                       </span>
                     </div>
                   ) : (
-                    <div className="mb-2 h-14 w-48 border-b border-dashed border-foreground/50 print:border-black" />
+                    <div className="mb-2 h-16 w-48 border-b border-dashed border-foreground/50 print:border-black" />
                   )}
                   <div className="border-t border-border pt-1.5 w-full print:border-neutral-400">
                     <p className="text-xs font-semibold text-foreground print:text-black">{os.tecnicoNome}</p>

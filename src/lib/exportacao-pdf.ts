@@ -148,9 +148,19 @@ export function obterDadosOrdemServico(
   // Registros de atendimento
   const registros = extrairRegistrosAtendimento(chamado.oQueFoiFeito);
 
-  // Assinatura digital do técnico (procura nos registros ou campo oQueFoiFeito)
+  // Assinatura digital do técnico (procura no campo geral ou nos registros individuais)
   const assExtraida = extrairTextoEImagemAssinatura(chamado.oQueFoiFeito);
-  const temAssinaturaDigital = Boolean(assExtraida.imagem);
+  let assinaturaImagem = assExtraida.imagem ?? undefined;
+  if (!assinaturaImagem && registros.length > 0) {
+    for (const r of registros) {
+      const assReg = extrairTextoEImagemAssinatura(r.conteudo);
+      if (assReg.imagem) {
+        assinaturaImagem = assReg.imagem;
+        break;
+      }
+    }
+  }
+  const temAssinaturaDigital = Boolean(assinaturaImagem);
 
   // Status SLA compatível com o motor de SLA do front e backend
   const sla = resumoSla(chamado);
@@ -193,7 +203,7 @@ export function obterDadosOrdemServico(
     anexos: anexosUnicos,
     registrosAtendimento: registros,
     temAssinaturaDigital,
-    assinaturaImagem: assExtraida.imagem ?? undefined,
+    assinaturaImagem,
     emitidoPor: usuarioLogado?.nome ? `${usuarioLogado.nome} (${usuarioLogado.papel || "Operador"})` : undefined,
     emitidoEmFormatado: agora.toLocaleString("pt-BR", {
       day: "2-digit",

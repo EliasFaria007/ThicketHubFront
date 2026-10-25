@@ -202,9 +202,9 @@ function DetalheChamadoPage() {
 
       let novoTextoRegistro = oQueFoiFeito.trim();
 
-      // Aplica assinatura ao texto do novo registro — SOMENTE se o toggle "incluir automaticamente" estiver ativado
-      if (novoTextoRegistro && user?.incluirAssinaturaPadrao !== false) {
-        if (user?.assinatura) {
+      // Aplica assinatura ao texto do novo registro
+      if (novoTextoRegistro) {
+        if (user?.incluirAssinaturaPadrao !== false && user?.assinatura) {
           const { texto: textoAss } = extrairTextoEImagemAssinatura(user.assinatura);
           if (textoAss && !temAssinaturaNoTexto(novoTextoRegistro, textoAss)) {
             novoTextoRegistro = aplicarAssinatura(novoTextoRegistro, textoAss);
@@ -506,7 +506,7 @@ function DetalheChamadoPage() {
                 </div>
                 <ul className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
                   {chamado.anexos.map((anexo) => {
-                    const isImg = eArquivoImagem(anexo.nome || anexo.url);
+                    const isImg = eArquivoImagem(anexo.nome, anexo.url);
                     return (
                       <li
                         key={anexo.id}
@@ -515,14 +515,14 @@ function DetalheChamadoPage() {
                         {isImg ? (
                           <button
                             type="button"
-                            className="w-full cursor-pointer overflow-hidden text-left"
+                            className="flex h-28 w-full cursor-pointer items-center justify-center overflow-hidden bg-background/50 p-1 text-left"
                             onClick={() => setImagemEmVisualizacao(anexo)}
                             title="Clique para visualizar em tamanho expandido"
                           >
                             <img
                               src={anexo.url}
                               alt={anexo.nome}
-                              className="h-28 w-full object-cover transition-transform duration-200 group-hover:scale-105"
+                              className="max-h-full max-w-full rounded object-contain transition-transform duration-200 group-hover:scale-105"
                             />
                           </button>
                         ) : (
@@ -755,17 +755,17 @@ function DetalheChamadoPage() {
                     </p>
                     <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                       {chamado.anexos?.map((anexo) => {
-                        const isImg = eArquivoImagem(anexo.nome || anexo.url);
+                        const isImg = eArquivoImagem(anexo.nome, anexo.url);
                         return (
                           <li key={anexo.id} className="group relative overflow-hidden rounded-md border border-border bg-card">
                             {isImg ? (
                               <button
                                 type="button"
-                                className="w-full text-left"
+                                className="flex h-20 w-full items-center justify-center overflow-hidden bg-background/50 p-1 text-left"
                                 onClick={() => setImagemEmVisualizacao(anexo)}
                                 title="Visualizar em tamanho expandido"
                               >
-                                <img src={anexo.url} alt={anexo.nome} className="h-20 w-full object-cover" />
+                                <img src={anexo.url} alt={anexo.nome} className="max-h-full max-w-full rounded object-contain" />
                               </button>
                             ) : (
                               <div
@@ -910,17 +910,17 @@ function DetalheChamadoPage() {
                       <div className="mt-2.5">
                         <ul className="flex flex-wrap gap-2">
                           {c.anexos.map((anx) => {
-                            const isImg = eArquivoImagem(anx.nome || anx.url);
+                            const isImg = eArquivoImagem(anx.nome, anx.url);
                             return (
                               <li key={anx.id} className="group relative overflow-hidden rounded-md border border-border bg-card">
                                 {isImg ? (
                                   <button
                                     type="button"
-                                    className="cursor-pointer overflow-hidden text-left"
+                                    className="flex h-20 w-24 cursor-pointer items-center justify-center overflow-hidden bg-background/50 p-1 text-left"
                                     onClick={() => setImagemEmVisualizacao(anx)}
                                     title="Visualizar anexo"
                                   >
-                                    <img src={anx.url} alt={anx.nome} className="h-20 w-24 object-cover transition-transform group-hover:scale-105" />
+                                    <img src={anx.url} alt={anx.nome} className="max-h-full max-w-full rounded object-contain transition-transform group-hover:scale-105" />
                                   </button>
                                 ) : (
                                   <div

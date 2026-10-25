@@ -7,11 +7,17 @@ export const FORMATOS_ACEITOS = "image/*,.pdf,.doc,.docx,.txt,.xls,.xlsx,.csv,.z
 
 /**
  * Verifica se o arquivo ou URL é imagem (para preview e thumbnail).
+ * Suporta data:image, blob:, SVG, e URLs com parâmetros de busca.
  */
-export function eArquivoImagem(nomeOuUrl?: string): boolean {
-  if (!nomeOuUrl) return false;
-  if (nomeOuUrl.startsWith("data:image/")) return true;
-  return /\.(png|jpe?g|webp|gif|svg|bmp|ico)$/i.test(nomeOuUrl);
+export function eArquivoImagem(nomeOuUrl?: string, urlFallback?: string): boolean {
+  const alvos = [nomeOuUrl, urlFallback].filter(Boolean) as string[];
+  for (const alvo of alvos) {
+    if (alvo.startsWith("data:image/")) return true;
+    if (alvo.startsWith("blob:")) return true;
+    if (/\.(png|jpe?g|webp|gif|svg|bmp|ico|avif)($|[?#])/i.test(alvo)) return true;
+    if (/image\/(png|jpe?g|webp|gif|svg\+xml|bmp|avif)/i.test(alvo)) return true;
+  }
+  return false;
 }
 
 /**
