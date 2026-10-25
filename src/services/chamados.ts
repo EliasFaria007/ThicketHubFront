@@ -374,9 +374,13 @@ export async function avaliarChamado(id: string | number, nota: number, comentar
 // Comentários
 // ---------------------------------------------------------------------------
 
-export async function comentarChamado(id: string | number, payload: { mensagem: string; interno?: boolean }): Promise<Comentario> {
+export async function comentarChamado(id: string | number, payload: { mensagem: string; interno?: boolean; anexos?: Anexo[] }): Promise<Comentario> {
+  let mensagemFinal = payload.mensagem;
+  if (payload.anexos && payload.anexos.length > 0) {
+    mensagemFinal = empacotarOQueFoiFeitoComAnexos(mensagemFinal, payload.anexos);
+  }
   const data = await apiPost<any>(`/chamados/${id}/comentarios`, {
-    mensagem: payload.mensagem,
+    mensagem: mensagemFinal,
     flagInterno: payload.interno ?? false,
   });
   return adaptarComentario(data);

@@ -1,7 +1,67 @@
 import type { Anexo } from "@/types";
 
 /**
- * Converte um arquivo de imagem em um objeto Anexo com DataURL otimizada.
+ * Extensões e formatos aceitos para anexos.
+ */
+export const FORMATOS_ACEITOS = "image/*,.pdf,.doc,.docx,.txt,.xls,.xlsx,.csv,.zip,.rar";
+
+/**
+ * Verifica se o arquivo ou URL é imagem (para preview e thumbnail).
+ */
+export function eArquivoImagem(nomeOuUrl?: string): boolean {
+  if (!nomeOuUrl) return false;
+  if (nomeOuUrl.startsWith("data:image/")) return true;
+  return /\.(png|jpe?g|webp|gif|svg|bmp|ico)$/i.test(nomeOuUrl);
+}
+
+/**
+ * Extrai arquivos da área de transferência (por exemplo, prints com Ctrl+V).
+ */
+export function extrairArquivosClipboard(e: React.ClipboardEvent | ClipboardEvent): File[] {
+  const clipboardData = e.clipboardData;
+  if (!clipboardData) return [];
+  const files: File[] = [];
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const timestamp = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+
+  if (clipboardData.items && clipboardData.items.length > 0) {
+    for (let i = 0; i < clipboardData.items.length; i++) {
+      const item = clipboardData.items[i];
+      if (item.kind === "file") {
+        const file = typeof item.getAsFile === "function" ? item.getAsFile() : null;
+        if (file) {
+          if (file.name === "image.png" || !file.name || file.name === "blob") {
+            const ext = file.type.split("/")[1] || "png";
+            const novoFile = new File([file], `print-${timestamp}.${ext}`, { type: file.type });
+            files.push(novoFile);
+          } else {
+            files.push(file);
+          }
+        }
+      }
+    }
+  }
+
+  // Fallback se items não gerou arquivos, mas há arquivos em clipboardData.files
+  if (files.length === 0 && clipboardData.files && clipboardData.files.length > 0) {
+    for (let i = 0; i < clipboardData.files.length; i++) {
+      const file = clipboardData.files[i];
+      if (file.name === "image.png" || !file.name || file.name === "blob") {
+        const ext = file.type.split("/")[1] || "png";
+        const novoFile = new File([file], `print-${timestamp}.${ext}`, { type: file.type });
+        files.push(novoFile);
+      } else {
+        files.push(file);
+      }
+    }
+  }
+
+  return files;
+}
+
+/**
+ * Converte um arquivo em um objeto Anexo com DataURL otimizada.
  * Redimensiona imagens muito grandes (máx 1600px) para otimizar armazenamento e tráfego.
  */
 export async function arquivoParaAnexo(file: File): Promise<Anexo> {
@@ -20,7 +80,7 @@ export async function arquivoParaAnexo(file: File): Promise<Anexo> {
  */
 function lerEOtimizarImagem(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
-    // Se não for imagem comum, lê como DataURL direto (ex: SVG, documentos)
+    // Se não for imagem comum, lê como DataURL direto (ex: PDF, SVG, documentos)
     if (!file.type.startsWith("image/") || file.type === "image/svg+xml") {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result as string);
@@ -29,81 +89,73 @@ function lerEOtimizarImagem(file: File): Promise<string> {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onerror = reject;
-    reader.onload = () => {
-      const img = new Image();
-      img.onerror = () => resolve(reader.result as string); // fallback
-      img.onload = () => {
-        const MAX_DIM = 1600;
-        let { width, height } = img;
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
 
-        // Se já for pequena (< 200KB) e com dimensões contidas, mantém original
-        if (width <= MAX_DIM && height <= MAX_DIM && file.size < 200 * 1024) {
-          resolve(reader.result as string);
-          return;
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+
+      const MAX_DIM = 1600;
+      let width = img.naturalWidth || img.width;
+      let height = img.naturalHeight || img.height;
+
+      if (width > MAX_DIM || height > MAX_DIM) {
+        if (width > height) {
+          height = Math.round((height * MAX_DIM) / width);
+          width = MAX_DIM;
+        } else {
+          width = Math.round((width * MAX_DIM) / height);
+          height = MAX_DIM;
         }
+      }
 
-        if (width > MAX_DIM || height > MAX_DIM) {
-          if (width > height) {
-            height = Math.round((height * MAX_DIM) / width);
-            width = MAX_DIM;
-          } else {
-            width = Math.round((width * MAX_DIM) / height);
-            height = MAX_DIM;
-          }
-        }
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
 
-        const canvas = document.createElement("canvas");
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) {
-          resolve(reader.result as string);
-          return;
-        }
+      if (!ctx) {
+        // Fallback: lê direto sem redimensionar
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+        return;
+      }
 
-        ctx.drawImage(img, 0, 0, width, height);
-
-        // Detecta suporte a webp com fallback para jpeg
-        let formato = "image/webp";
-        try {
-          const test = document.createElement("canvas");
-          test.width = 1;
-          test.height = 1;
-          if (test.toDataURL("image/webp").indexOf("data:image/webp") !== 0) {
-            formato = "image/jpeg";
-          }
-        } catch {
-          formato = "image/jpeg";
-        }
-
-        // Comprime para 80% de qualidade gerando arquivos levíssimos
-        const resizedDataUrl = canvas.toDataURL(formato, 0.8);
-        resolve(resizedDataUrl);
-      };
-      img.src = reader.result as string;
+      ctx.drawImage(img, 0, 0, width, height);
+      // Salva em WEBP com qualidade 0.85 para compressão máxima com ótima qualidade visual
+      const mime = file.type === "image/png" ? "image/png" : "image/jpeg";
+      resolve(canvas.toDataURL(mime, 0.85));
     };
-    reader.readAsDataURL(file);
+
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      // Se der erro ao decodificar imagem, lê direto como base64
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    };
+
+    img.src = objectUrl;
   });
 }
 
 /**
- * Dispara o download de um anexo no navegador.
+ * Baixa um anexo pelo navegador.
  */
 export function baixarAnexo(anexo: Pick<Anexo, "nome" | "url">) {
   const link = document.createElement("a");
   link.href = anexo.url;
   link.download = anexo.nome;
-  link.target = "_blank";
-  link.rel = "noopener noreferrer";
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
 }
 
 /**
- * Formata tamanho em bytes para exibição humana (KB, MB).
+ * Formata tamanho em bytes para leitura humana (ex: 2.4 MB).
  */
 export function formatarTamanho(bytes: number): string {
   if (bytes <= 0) return "0 B";
@@ -113,7 +165,7 @@ export function formatarTamanho(bytes: number): string {
 }
 
 /**
- * Salva a lista de anexos no localStorage como backup persistente local.
+ * Salva a lista de anexos no localStorage por chamadoId (cache e fallback).
  */
 export function salvarAnexosLocalmente(chamadoId: string | number, anexos: Anexo[]): void {
   try {
@@ -124,13 +176,13 @@ export function salvarAnexosLocalmente(chamadoId: string | number, anexos: Anexo
       return;
     }
     localStorage.setItem(chave, JSON.stringify(anexos));
-  } catch (err) {
-    console.warn("Não foi possível salvar anexos no localStorage:", err);
+  } catch {
+    // quota exceeded ou armazenamento desabilitado - ignora silenciosamente
   }
 }
 
 /**
- * Recupera os anexos salvos localmente para o chamado.
+ * Recupera os anexos salvos no localStorage para o chamado especificado.
  */
 export function obterAnexosLocalmente(chamadoId: string | number): Anexo[] {
   try {
@@ -144,4 +196,3 @@ export function obterAnexosLocalmente(chamadoId: string | number): Anexo[] {
     return [];
   }
 }
-

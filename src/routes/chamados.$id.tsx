@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, Download, Hand, ImageIcon, ImagePlus, Link2, Loader2, PenLine, Printer, RotateCcw, Save, Send, Share2, Star, Trash2, Undo2 } from "lucide-react";
+import { ArrowLeft, Download, FileText, Hand, ImageIcon, ImagePlus, Link2, Loader2, Paperclip, PenLine, Printer, RotateCcw, Save, Send, Share2, Star, Trash2, Undo2, Upload } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
@@ -17,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { aplicarAssinatura, extrairTextoEImagemAssinatura, montarAssinaturaCompleta } from "@/lib/assinatura";
-import { arquivoParaAnexo, baixarAnexo, formatarTamanho } from "@/lib/arquivos";
+import { arquivoParaAnexo, baixarAnexo, formatarTamanho, eArquivoImagem, extrairArquivosClipboard, FORMATOS_ACEITOS } from "@/lib/arquivos";
 import { PAPEL_LABEL, SETORES, STATUS_LABEL, STATUS_OPCOES } from "@/lib/dominio";
 import { dataHora, desdeAgora, iniciais } from "@/lib/format";
 import { textoSeguro } from "@/lib/sanitize";
@@ -86,6 +86,8 @@ function DetalheChamadoPage() {
   const [imagemEmVisualizacao, setImagemEmVisualizacao] = useState<Anexo | null>(null);
   const imagensInputRef = useRef<HTMLInputElement>(null);
   const [imagensComentario, setImagensComentario] = useState<File[]>([]);
+  const [arrastandoComentario, setArrastandoComentario] = useState(false);
+  const [arrastandoAtendimento, setArrastandoAtendimento] = useState(false);
   const imagensComentarioRef = useRef<HTMLInputElement>(null);
 
   const [assinaturaGraficaAtendimento, setAssinaturaGraficaAtendimento] = useState<string | null>(() => {
@@ -400,69 +402,84 @@ function DetalheChamadoPage() {
               </div>
             )}
 
-            {/* Imagens salvas no chamado */}
+            {/* Imagens e Anexos salvos no chamado */}
             {chamado.anexos && chamado.anexos.length > 0 && (
               <div className="mt-4 rounded-lg border border-border bg-card p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <ImageIcon className="size-4 text-primary" />
+                    <Paperclip className="size-4 text-primary" />
                     <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      Imagens e Evidências do Atendimento ({chamado.anexos.length})
+                      Anexos e Evidências do Chamado ({chamado.anexos.length})
                     </h3>
                   </div>
                   <span className="text-xs text-muted-foreground">Clique para visualizar ou baixar</span>
                 </div>
                 <ul className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
-                  {chamado.anexos.map((anexo) => (
-                    <li
-                      key={anexo.id}
-                      className="group relative overflow-hidden rounded-lg border border-border bg-muted/30 shadow-xs transition-shadow hover:shadow-md"
-                    >
-                      <button
-                        type="button"
-                        className="w-full cursor-pointer overflow-hidden text-left"
-                        onClick={() => setImagemEmVisualizacao(anexo)}
-                        title="Clique para visualizar em tamanho expandido"
+                  {chamado.anexos.map((anexo) => {
+                    const isImg = eArquivoImagem(anexo.nome || anexo.url);
+                    return (
+                      <li
+                        key={anexo.id}
+                        className="group relative overflow-hidden rounded-lg border border-border bg-muted/30 shadow-xs transition-shadow hover:shadow-md"
                       >
-                        <img
-                          src={anexo.url}
-                          alt={anexo.nome}
-                          className="h-28 w-full object-cover transition-transform duration-200 group-hover:scale-105"
-                        />
-                      </button>
-                      <div className="flex items-center justify-between gap-1 border-t border-border bg-card p-2 text-xs">
-                        <span className="truncate font-medium text-foreground" title={anexo.nome}>
-                          {anexo.nome}
-                        </span>
-                        <div className="flex shrink-0 items-center gap-1">
-                          <Button
+                        {isImg ? (
+                          <button
                             type="button"
-                            size="icon"
-                            variant="ghost"
-                            className="size-6 text-muted-foreground hover:text-foreground"
-                            title="Baixar imagem"
-                            onClick={() => baixarAnexo(anexo)}
+                            className="w-full cursor-pointer overflow-hidden text-left"
+                            onClick={() => setImagemEmVisualizacao(anexo)}
+                            title="Clique para visualizar em tamanho expandido"
                           >
-                            <Download className="size-3.5" />
-                            <span className="sr-only">Baixar</span>
-                          </Button>
-                          {podeAtualizar && !encerrado && (
+                            <img
+                              src={anexo.url}
+                              alt={anexo.nome}
+                              className="h-28 w-full object-cover transition-transform duration-200 group-hover:scale-105"
+                            />
+                          </button>
+                        ) : (
+                          <div
+                            className="flex h-28 w-full cursor-pointer flex-col items-center justify-center bg-muted/50 p-2 text-center"
+                            onClick={() => baixarAnexo(anexo)}
+                            title="Clique para baixar o arquivo"
+                          >
+                            <FileText className="mb-1 size-8 text-primary" />
+                            <span className="line-clamp-2 text-xs font-medium text-foreground">{anexo.nome}</span>
+                            <span className="text-[10px] text-muted-foreground">{formatarTamanho(anexo.tamanho)}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center justify-between gap-1 border-t border-border bg-card p-2 text-xs">
+                          <span className="truncate font-medium text-foreground" title={anexo.nome}>
+                            {anexo.nome}
+                          </span>
+                          <div className="flex shrink-0 items-center gap-1">
                             <Button
                               type="button"
                               size="icon"
                               variant="ghost"
-                              className="size-6 text-muted-foreground hover:text-destructive"
-                              title="Excluir imagem deste chamado"
-                              onClick={() => removerAnexoSalvo(anexo.id)}
+                              className="size-6 text-muted-foreground hover:text-foreground"
+                              title="Baixar anexo"
+                              onClick={() => baixarAnexo(anexo)}
                             >
-                              <Trash2 className="size-3.5" />
-                              <span className="sr-only">Remover</span>
+                              <Download className="size-3.5" />
+                              <span className="sr-only">Baixar</span>
                             </Button>
-                          )}
+                            {podeAtualizar && !encerrado && (
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                className="size-6 text-muted-foreground hover:text-destructive"
+                                title="Excluir anexo deste chamado"
+                                onClick={() => removerAnexoSalvo(anexo.id)}
+                              >
+                                <Trash2 className="size-3.5" />
+                                <span className="sr-only">Remover</span>
+                              </Button>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    </li>
-                  ))}
+                      </li>
+                    );
+                  })}
                 </ul>
               </div>
             )}
@@ -490,8 +507,15 @@ function DetalheChamadoPage() {
                   rows={8}
                   className="min-h-[180px]"
                   value={oQueFoiFeito}
-                  placeholder="Descreva o procedimento realizado. Obrigatório para resolver o chamado."
+                  placeholder="Descreva o procedimento realizado. Obrigatório para resolver o chamado. (Você também pode colar prints ou arquivos com Ctrl+V aqui)"
                   onChange={(e) => setOQueFoiFeito(e.target.value)}
+                  onPaste={(e) => {
+                    const colados = extrairArquivosClipboard(e);
+                    if (colados.length > 0) {
+                      setImagensAtendimento((prev) => [...prev, ...colados]);
+                      toast.success(`${colados.length} anexo(s) colado(s) da área de transferência!`);
+                    }
+                  }}
                 />
 
                 {/* Preview da assinatura gráfica configurada no perfil */}
@@ -561,20 +585,20 @@ function DetalheChamadoPage() {
                 </div>
               </div>
 
-              {/* Imagens do atendimento */}
+              {/* Anexos e evidências do atendimento */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label>Adicionar imagens ao atendimento</Label>
+                  <Label>Anexos e evidências do atendimento</Label>
                   {(chamado.anexos?.length ?? 0) > 0 && (
                     <span className="text-xs text-muted-foreground">
-                      {chamado.anexos?.length} imagem(ns) já salva(s) no chamado
+                      {chamado.anexos?.length} anexo(s) já salvo(s) no chamado
                     </span>
                   )}
                 </div>
                 <input
                   ref={imagensInputRef}
                   type="file"
-                  accept="image/*"
+                  accept={FORMATOS_ACEITOS}
                   multiple
                   className="sr-only"
                   onChange={(e) => {
@@ -585,94 +609,142 @@ function DetalheChamadoPage() {
                     if (imagensInputRef.current) imagensInputRef.current.value = "";
                   }}
                 />
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => imagensInputRef.current?.click()}
-                >
-                  <ImagePlus className="size-4" />
-                  Adicionar imagens
-                </Button>
 
-                {/* Lista de imagens já salvas no chamado (visíveis dentro do atendimento) */}
+                <div
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setArrastandoAtendimento(true);
+                  }}
+                  onDragLeave={(e) => {
+                    e.preventDefault();
+                    setArrastandoAtendimento(false);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setArrastandoAtendimento(false);
+                    const arquivos = Array.from(e.dataTransfer.files ?? []);
+                    if (arquivos.length > 0) {
+                      setImagensAtendimento((prev) => [...prev, ...arquivos]);
+                      toast.success(`${arquivos.length} anexo(s) adicionado(s)!`);
+                    }
+                  }}
+                  onClick={() => imagensInputRef.current?.click()}
+                  className={`flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-4 text-center transition-colors ${
+                    arrastandoAtendimento
+                      ? "border-primary bg-primary/10"
+                      : "border-border hover:border-primary/50 hover:bg-muted/30"
+                  }`}
+                >
+                  <Upload className="mb-2 size-6 text-muted-foreground" />
+                  <p className="text-sm font-medium text-foreground">
+                    Clique para anexar ou arraste arquivos aqui
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Imagens, PDFs, documentos. Dica: você também pode colar prints diretamente com <kbd className="rounded border bg-muted px-1 font-mono text-[10px]">Ctrl+V</kbd>
+                  </p>
+                </div>
+
+                {/* Lista de anexos já salvos no chamado (visíveis dentro do atendimento) */}
                 {(chamado.anexos?.length ?? 0) > 0 && (
                   <div className="rounded-lg border border-border bg-muted/20 p-3">
                     <p className="mb-2 text-xs font-semibold text-muted-foreground">
-                      Imagens já salvas neste chamado ({chamado.anexos?.length}):
+                      Anexos já salvos neste chamado ({chamado.anexos?.length}):
                     </p>
                     <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                      {chamado.anexos?.map((anexo) => (
-                        <li key={anexo.id} className="group relative overflow-hidden rounded-md border border-border bg-card">
-                          <button
-                            type="button"
-                            className="w-full text-left"
-                            onClick={() => setImagemEmVisualizacao(anexo)}
-                            title="Visualizar em tamanho expandido"
-                          >
-                            <img src={anexo.url} alt={anexo.nome} className="h-20 w-full object-cover" />
-                          </button>
-                          <div className="flex items-center justify-between border-t border-border bg-card px-2 py-1 text-[11px]">
-                            <span className="max-w-[70%] truncate" title={anexo.nome}>
-                              {anexo.nome}
-                            </span>
-                            <div className="flex items-center gap-1">
+                      {chamado.anexos?.map((anexo) => {
+                        const isImg = eArquivoImagem(anexo.nome || anexo.url);
+                        return (
+                          <li key={anexo.id} className="group relative overflow-hidden rounded-md border border-border bg-card">
+                            {isImg ? (
                               <button
                                 type="button"
-                                className="text-muted-foreground hover:text-foreground"
+                                className="w-full text-left"
+                                onClick={() => setImagemEmVisualizacao(anexo)}
+                                title="Visualizar em tamanho expandido"
+                              >
+                                <img src={anexo.url} alt={anexo.nome} className="h-20 w-full object-cover" />
+                              </button>
+                            ) : (
+                              <div
+                                className="flex h-20 w-full cursor-pointer flex-col items-center justify-center bg-muted/40 p-1.5 text-center"
                                 onClick={() => baixarAnexo(anexo)}
-                                title="Baixar imagem"
+                                title="Baixar anexo"
                               >
-                                <Download className="size-3" />
-                              </button>
-                              <button
-                                type="button"
-                                className="text-muted-foreground hover:text-destructive"
-                                onClick={() => removerAnexoSalvo(anexo.id)}
-                                title="Excluir imagem do chamado"
-                              >
-                                <Trash2 className="size-3" />
-                              </button>
+                                <FileText className="mb-1 size-6 text-primary" />
+                                <span className="line-clamp-1 text-[11px] font-medium">{anexo.nome}</span>
+                              </div>
+                            )}
+                            <div className="flex items-center justify-between border-t border-border bg-card px-2 py-1 text-[11px]">
+                              <span className="max-w-[70%] truncate" title={anexo.nome}>
+                                {anexo.nome}
+                              </span>
+                              <div className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  className="text-muted-foreground hover:text-foreground"
+                                  onClick={() => baixarAnexo(anexo)}
+                                  title="Baixar anexo"
+                                >
+                                  <Download className="size-3" />
+                                </button>
+                                <button
+                                  type="button"
+                                  className="text-muted-foreground hover:text-destructive"
+                                  onClick={() => removerAnexoSalvo(anexo.id)}
+                                  title="Excluir anexo do chamado"
+                                >
+                                  <Trash2 className="size-3" />
+                                </button>
+                              </div>
                             </div>
-                          </div>
-                        </li>
-                      ))}
+                          </li>
+                        );
+                      })}
                     </ul>
                   </div>
                 )}
 
-                {/* Imagens novas aguardando salvar */}
+                {/* Anexos novos aguardando salvar */}
                 {imagensAtendimento.length > 0 && (
                   <div className="space-y-1.5 pt-1">
                     <p className="text-xs font-medium text-warning">
-                      {imagensAtendimento.length} nova(s) imagem(ns) selecionada(s) — clique em &quot;Salvar registro&quot; para gravar:
+                      {imagensAtendimento.length} novo(s) anexo(s) selecionado(s) — clique em &quot;Salvar registro&quot; para gravar:
                     </p>
                     <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                       {imagensAtendimento.map((img, idx) => {
+                        const isImg = eArquivoImagem(img.name);
                         const url = URL.createObjectURL(img);
                         return (
                           <li key={idx} className="group relative overflow-hidden rounded-lg border border-warning/40 bg-muted">
-                            <img
-                              src={url}
-                              alt={img.name}
-                              className="h-28 w-full object-cover"
-                              onLoad={() => URL.revokeObjectURL(url)}
-                            />
+                            {isImg ? (
+                              <img
+                                src={url}
+                                alt={img.name}
+                                className="h-28 w-full object-cover"
+                                onLoad={() => URL.revokeObjectURL(url)}
+                              />
+                            ) : (
+                              <div className="flex h-28 w-full flex-col items-center justify-center p-2 text-center">
+                                <FileText className="mb-1 size-8 text-primary" />
+                                <span className="line-clamp-2 text-xs font-medium">{img.name}</span>
+                                <span className="text-[10px] text-muted-foreground">{formatarTamanho(img.size)}</span>
+                              </div>
+                            )}
                             <div className="absolute inset-x-0 bottom-0 flex items-center justify-between gap-1 bg-black/75 px-2 py-1 text-white">
                               <span className="max-w-[70%] truncate text-[10px]">{img.name}</span>
                               <div className="flex gap-1">
                                 <a
-                                  href={URL.createObjectURL(img)}
+                                  href={url}
                                   download={img.name}
                                   className="grid size-6 place-items-center rounded bg-white/20 text-white hover:bg-white/40"
-                                  title="Baixar imagem"
+                                  title="Baixar anexo"
                                 >
                                   <Download className="size-3" />
                                 </a>
                                 <button
                                   type="button"
                                   className="grid size-6 place-items-center rounded bg-white/20 text-white hover:bg-red-500/80"
-                                  title="Remover imagem da lista"
+                                  title="Remover anexo da lista"
                                   onClick={() =>
                                     setImagensAtendimento((prev) => prev.filter((_, i) => i !== idx))
                                   }
@@ -734,31 +806,46 @@ function DetalheChamadoPage() {
                     {c.anexos && c.anexos.length > 0 && (
                       <div className="mt-2.5">
                         <ul className="flex flex-wrap gap-2">
-                          {c.anexos.map((anx) => (
-                            <li key={anx.id} className="group relative overflow-hidden rounded-md border border-border bg-card">
-                              <button
-                                type="button"
-                                className="cursor-pointer overflow-hidden text-left"
-                                onClick={() => setImagemEmVisualizacao(anx)}
-                                title="Visualizar imagem"
-                              >
-                                <img src={anx.url} alt={anx.nome} className="h-20 w-24 object-cover transition-transform group-hover:scale-105" />
-                              </button>
-                              <div className="flex items-center justify-between gap-1 border-t border-border bg-card/90 px-1.5 py-0.5 text-[10px]">
-                                <span className="max-w-[70px] truncate font-medium" title={anx.nome}>
-                                  {anx.nome}
-                                </span>
-                                <button
-                                  type="button"
-                                  className="text-muted-foreground hover:text-foreground"
-                                  onClick={() => baixarAnexo(anx)}
-                                  title="Baixar imagem"
-                                >
-                                  <Download className="size-3" />
-                                </button>
-                              </div>
-                            </li>
-                          ))}
+                          {c.anexos.map((anx) => {
+                            const isImg = eArquivoImagem(anx.nome || anx.url);
+                            return (
+                              <li key={anx.id} className="group relative overflow-hidden rounded-md border border-border bg-card">
+                                {isImg ? (
+                                  <button
+                                    type="button"
+                                    className="cursor-pointer overflow-hidden text-left"
+                                    onClick={() => setImagemEmVisualizacao(anx)}
+                                    title="Visualizar anexo"
+                                  >
+                                    <img src={anx.url} alt={anx.nome} className="h-20 w-24 object-cover transition-transform group-hover:scale-105" />
+                                  </button>
+                                ) : (
+                                  <div
+                                    className="flex h-20 w-24 cursor-pointer flex-col items-center justify-center bg-muted/40 p-1.5 text-center"
+                                    onClick={() => baixarAnexo(anx)}
+                                    title="Baixar anexo"
+                                  >
+                                    <FileText className="mb-1 size-6 text-primary" />
+                                    <span className="line-clamp-1 text-[10px] font-medium text-foreground">{anx.nome}</span>
+                                    <span className="text-[9px] text-muted-foreground">{formatarTamanho(anx.tamanho)}</span>
+                                  </div>
+                                )}
+                                <div className="flex items-center justify-between gap-1 border-t border-border bg-card/90 px-1.5 py-0.5 text-[10px]">
+                                  <span className="max-w-[70px] truncate font-medium" title={anx.nome}>
+                                    {anx.nome}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    className="text-muted-foreground hover:text-foreground"
+                                    onClick={() => baixarAnexo(anx)}
+                                    title="Baixar anexo"
+                                  >
+                                    <Download className="size-3" />
+                                  </button>
+                                </div>
+                              </li>
+                            );
+                          })}
                         </ul>
                       </div>
                     )}
@@ -776,7 +863,7 @@ function DetalheChamadoPage() {
                 onSubmit={(e) => {
                   e.preventDefault();
                   if (!mensagem.trim() && imagensComentario.length === 0) {
-                    toast.error("Digite uma mensagem ou adicione uma imagem.");
+                    toast.error("Digite uma mensagem ou adicione um anexo.");
                     return;
                   }
                   if (mensagem.trim() && mensagem.trim().length < 3 && imagensComentario.length === 0) {
@@ -792,7 +879,7 @@ function DetalheChamadoPage() {
                     <input
                       ref={imagensComentarioRef}
                       type="file"
-                      accept="image/*"
+                      accept={FORMATOS_ACEITOS}
                       multiple
                       className="sr-only"
                       onChange={(e) => {
@@ -810,8 +897,8 @@ function DetalheChamadoPage() {
                       className="h-8 gap-1.5 text-xs"
                       onClick={() => imagensComentarioRef.current?.click()}
                     >
-                      <ImagePlus className="size-3.5" />
-                      Adicionar imagens
+                      <Paperclip className="size-3.5" />
+                      Anexar arquivos
                     </Button>
                     {!interno && (
                       <BotaoAssinaturasProntas
@@ -822,39 +909,82 @@ function DetalheChamadoPage() {
                     )}
                   </div>
                 </div>
-                <Textarea
-                  id="mensagem"
-                  rows={3}
-                  value={mensagem}
-                  onChange={(e) => setMensagem(e.target.value)}
-                  placeholder="Escreva uma atualização ou tire dúvidas sobre o chamado..."
-                />
+                <div
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    setArrastandoComentario(true);
+                  }}
+                  onDragLeave={(e) => {
+                    e.preventDefault();
+                    setArrastandoComentario(false);
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setArrastandoComentario(false);
+                    const arquivos = Array.from(e.dataTransfer.files ?? []);
+                    if (arquivos.length > 0) {
+                      setImagensComentario((prev) => [...prev, ...arquivos]);
+                      toast.success(`${arquivos.length} arquivo(s) adicionado(s) ao comentário!`);
+                    }
+                  }}
+                  className={`relative rounded-md transition-all ${
+                    arrastandoComentario ? "ring-2 ring-primary ring-offset-2" : ""
+                  }`}
+                >
+                  <Textarea
+                    id="mensagem"
+                    rows={3}
+                    value={mensagem}
+                    onChange={(e) => setMensagem(e.target.value)}
+                    placeholder="Escreva uma mensagem... (Você também pode colar prints ou arquivos com Ctrl+V ou arrastar aqui)"
+                    onPaste={(e) => {
+                      const colados = extrairArquivosClipboard(e);
+                      if (colados.length > 0) {
+                        setImagensComentario((prev) => [...prev, ...colados]);
+                        toast.success(`${colados.length} anexo(s) colado(s) no comentário!`);
+                      }
+                    }}
+                  />
+                  {arrastandoComentario && (
+                    <div className="absolute inset-0 flex items-center justify-center rounded-md bg-primary/10 backdrop-blur-[1px]">
+                      <p className="text-xs font-semibold text-primary">Solte os arquivos para anexar ao comentário</p>
+                    </div>
+                  )}
+                </div>
 
-                {/* Prévia de imagens anexadas ao comentário */}
+                {/* Prévia de anexos vinculados ao comentário */}
                 {imagensComentario.length > 0 && (
                   <div className="rounded-md border border-border bg-muted/20 p-2.5">
                     <p className="mb-1.5 text-[11px] font-medium text-muted-foreground">
-                      Imagens selecionadas para este comentário ({imagensComentario.length}):
+                      Anexos selecionados para este comentário ({imagensComentario.length}):
                     </p>
                     <ul className="flex flex-wrap gap-2">
-                      {imagensComentario.map((file, idx) => (
-                        <li
-                          key={`${file.name}-${idx}`}
-                          className="flex items-center gap-1.5 rounded border border-border bg-card px-2 py-1 text-xs"
-                        >
-                          <span className="max-w-[140px] truncate font-medium text-foreground" title={file.name}>
-                            {file.name}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground">({formatarTamanho(file.size)})</span>
-                          <button
-                            type="button"
-                            className="text-muted-foreground hover:text-destructive"
-                            onClick={() => setImagensComentario((prev) => prev.filter((_, i) => i !== idx))}
+                      {imagensComentario.map((file, idx) => {
+                        const isImg = eArquivoImagem(file.name);
+                        return (
+                          <li
+                            key={`${file.name}-${idx}`}
+                            className="flex items-center gap-1.5 rounded border border-border bg-card px-2 py-1 text-xs"
                           >
-                            <Trash2 className="size-3" />
-                          </button>
-                        </li>
-                      ))}
+                            {isImg ? (
+                              <Paperclip className="size-3 text-primary shrink-0" />
+                            ) : (
+                              <FileText className="size-3 text-primary shrink-0" />
+                            )}
+                            <span className="max-w-[140px] truncate font-medium text-foreground" title={file.name}>
+                              {file.name}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">({formatarTamanho(file.size)})</span>
+                            <button
+                              type="button"
+                              className="text-muted-foreground hover:text-destructive"
+                              onClick={() => setImagensComentario((prev) => prev.filter((_, i) => i !== idx))}
+                            >
+                              <Trash2 className="size-3" />
+                            </button>
+                          </li>
+                        );
+                      })}
                     </ul>
                   </div>
                 )}
