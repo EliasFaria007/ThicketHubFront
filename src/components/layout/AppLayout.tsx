@@ -12,18 +12,21 @@ import {
   Layers,
   BarChart3,
   ScrollText,
+  Search,
   Settings,
   Ticket,
   UserRound,
   Users,
   X,
 } from "lucide-react";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
+import { BuscaRapidaModal } from "@/components/comum/BuscaRapidaModal";
 import { CompletarCadastroDialog } from "@/components/comum/CompletarCadastroDialog";
 import { SinoNotificacoes } from "@/components/comum/SinoNotificacoes";
 import { TermosDialog } from "@/components/comum/TermosDialog";
 import { Button } from "@/components/ui/button";
+import { ehAtalhoBuscaRapida } from "@/lib/busca-rapida";
 import { PAPEL_LABEL } from "@/lib/dominio";
 import { iniciais } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -55,12 +58,25 @@ export function AppLayout({
   children: ReactNode;
 }) {
   const [menuAberto, setMenuAberto] = useState(false);
+  const [buscaAberta, setBuscaAberta] = useState(false);
   const user = useAuthStore((s) => s.user);
   const token = useAuthStore((s) => s.token);
   const atualizarUsuario = useAuthStore((s) => s.atualizarUsuario);
   const sair = useAuthStore((s) => s.sair);
   const router = useRouter();
   const queryClient = useQueryClient();
+
+  // Listener global do atalho Ctrl+K / Cmd+K para acionar a Busca Rápida
+  useEffect(() => {
+    function aoPressionarTecla(e: KeyboardEvent) {
+      if (ehAtalhoBuscaRapida(e)) {
+        e.preventDefault();
+        setBuscaAberta((prev) => !prev);
+      }
+    }
+    window.addEventListener("keydown", aoPressionarTecla);
+    return () => window.removeEventListener("keydown", aoPressionarTecla);
+  }, []);
 
   // Garante que a assinatura e preferências do perfil fiquem sempre atualizadas do banco de dados
   useQuery({
@@ -186,6 +202,21 @@ export function AppLayout({
             </div>
 
             <div className="flex items-center gap-1.5 sm:gap-2">
+              {/* Botão de Busca Rápida (Ctrl+K) */}
+              <button
+                type="button"
+                onClick={() => setBuscaAberta(true)}
+                className="flex items-center gap-2 rounded-lg border border-border/80 bg-muted/40 px-2.5 py-1.5 text-xs text-muted-foreground hover:bg-muted hover:text-foreground transition-all sm:px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                title="Abrir busca rápida global (Ctrl+K)"
+                aria-label="Abrir busca rápida (Ctrl+K)"
+              >
+                <Search className="size-3.5 text-muted-foreground" />
+                <span className="hidden md:inline">Buscar chamados...</span>
+                <kbd className="pointer-events-none hidden h-4.5 select-none items-center gap-0.5 rounded border border-border/70 bg-background px-1.5 font-mono text-[10px] font-medium text-muted-foreground sm:inline-flex">
+                  <span className="text-[9px]">Ctrl</span>K
+                </kbd>
+              </button>
+
               {acoes}
               <SinoNotificacoes />
               <div className="hidden items-center gap-2 border-l border-border pl-3 sm:flex">
@@ -216,6 +247,7 @@ export function AppLayout({
 
       <TermosDialog />
       <CompletarCadastroDialog />
+      <BuscaRapidaModal aberto={buscaAberta} aoMudarAberto={setBuscaAberta} />
     </div>
   );
 }
