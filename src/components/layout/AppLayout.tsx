@@ -131,7 +131,7 @@ export function AppLayout({
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-dvh bg-background">
       <a
         href="#conteudo"
         className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-primary focus:px-3 focus:py-2 focus:text-primary-foreground"
@@ -146,18 +146,18 @@ export function AppLayout({
         <RodapeSidebar />
       </aside>
 
-      {/* Sidebar mobile */}
+      {/* Sidebar mobile com safe areas e altura dinamica */}
       {menuAberto && (
         <div className="fixed inset-0 z-40 lg:hidden">
           <div
-            className="absolute inset-0 bg-foreground/40"
+            className="fixed inset-0 bg-foreground/40 backdrop-blur-xs transition-opacity"
             onClick={() => setMenuAberto(false)}
             aria-hidden
           />
-          <aside className="absolute inset-y-0 left-0 flex w-72 flex-col border-r border-sidebar-border bg-sidebar shadow-soft">
-            <div className="flex items-center justify-between pr-2">
+          <aside className="fixed inset-y-0 left-0 flex h-dvh w-72 flex-col border-r border-sidebar-border bg-sidebar shadow-soft overflow-y-auto safe-area-pb">
+            <div className="flex items-center justify-between pr-3 safe-area-pt">
               <MarcaInstitucional />
-              <Button variant="ghost" size="icon" aria-label="Fechar menu" onClick={() => setMenuAberto(false)}>
+              <Button variant="ghost" size="icon" className="touch-target" aria-label="Fechar menu" onClick={() => setMenuAberto(false)}>
                 <X className="size-5" />
               </Button>
             </div>
@@ -168,12 +168,12 @@ export function AppLayout({
       )}
 
       <div className="lg:pl-64">
-        <header className="sticky top-0 z-30 border-b border-border bg-background/85 backdrop-blur">
-          <div className="flex items-center gap-3 px-4 py-3 sm:px-6">
+        <header className="sticky top-0 z-30 border-b border-border bg-background/85 backdrop-blur safe-area-pt">
+          <div className="flex items-center gap-2 px-3 py-2.5 sm:gap-3 sm:px-6 sm:py-3">
             <Button
               variant="ghost"
               size="icon"
-              className="lg:hidden"
+              className="touch-target lg:hidden"
               aria-label="Abrir menu de navegação"
               onClick={() => setMenuAberto(true)}
             >
@@ -181,11 +181,11 @@ export function AppLayout({
             </Button>
 
             <div className="min-w-0 flex-1">
-              <h1 className="truncate text-lg font-semibold text-foreground sm:text-xl">{titulo}</h1>
-              {descricao ? <p className="truncate text-sm text-muted-foreground">{descricao}</p> : null}
+              <h1 className="truncate text-base font-semibold text-foreground sm:text-xl">{titulo}</h1>
+              {descricao ? <p className="truncate text-xs text-muted-foreground sm:text-sm">{descricao}</p> : null}
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 sm:gap-2">
               {acoes}
               <SinoNotificacoes />
               <div className="hidden items-center gap-2 border-l border-border pl-3 sm:flex">
@@ -202,14 +202,14 @@ export function AppLayout({
                   </p>
                 </div>
               </div>
-              <Button variant="ghost" size="icon" aria-label="Sair do sistema" onClick={handleSair}>
+              <Button variant="ghost" size="icon" className="touch-target" aria-label="Sair do sistema" onClick={handleSair}>
                 <LogOut className="size-5" />
               </Button>
             </div>
           </div>
         </header>
 
-        <main id="conteudo" className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 sm:py-8">
+        <main id="conteudo" className="mx-auto w-full max-w-7xl px-3 py-4 sm:px-6 sm:py-8 safe-area-pb">
           {children}
         </main>
       </div>

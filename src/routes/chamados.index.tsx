@@ -310,14 +310,19 @@ function ListaChamadosPage() {
           <Button
             variant="outline"
             size="sm"
+            className="h-8 px-2.5 sm:h-9 sm:px-3 touch-manipulation"
             disabled={!data || data.items.length === 0}
             onClick={() => data && exportarCsv(data.items)}
+            title="Exportar chamados em CSV"
           >
-            <Download className="size-4" /> CSV
+            <Download className="size-3.5 sm:size-4" />
+            <span className="hidden sm:inline">CSV</span>
           </Button>
-          <Button asChild size="sm">
+          <Button asChild size="sm" className="h-8 px-2.5 sm:h-9 sm:px-3 touch-manipulation">
             <Link to="/chamados/novo">
-              <PlusCircle className="size-4" /> Abrir chamado
+              <PlusCircle className="size-3.5 sm:size-4" />
+              <span className="hidden sm:inline">Abrir chamado</span>
+              <span className="sm:hidden">Novo</span>
             </Link>
           </Button>
         </>
@@ -336,17 +341,18 @@ function ListaChamadosPage() {
             className="w-full"
           >
             <TabsList className="grid w-full max-w-2xl grid-cols-3">
-              <TabsTrigger value="minha" className="gap-2 text-xs sm:text-sm">
-                <UserCheck className="size-4 text-primary" />
-                <span>Meus Atendimentos</span>
+              <TabsTrigger value="minha" className="gap-1.5 text-xs sm:gap-2 sm:text-sm touch-manipulation">
+                <UserCheck className="size-3.5 sm:size-4 text-primary" />
+                <span className="hidden sm:inline">Meus Atendimentos</span>
+                <span className="sm:hidden">Meus</span>
                 {totalAssumidos > 0 && (
                   <span className="rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-primary-foreground">
                     {totalAssumidos}
                   </span>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="resolvidos" className="gap-2 text-xs sm:text-sm">
-                <CheckCheck className="size-4 text-green-600" />
+              <TabsTrigger value="resolvidos" className="gap-1.5 text-xs sm:gap-2 sm:text-sm touch-manipulation">
+                <CheckCheck className="size-3.5 sm:size-4 text-green-600" />
                 <span>Resolvidos</span>
                 {totalResolvidos > 0 && (
                   <span className="rounded-full bg-muted-foreground/20 px-1.5 py-0.5 text-[10px] font-bold text-foreground">
@@ -354,9 +360,10 @@ function ListaChamadosPage() {
                   </span>
                 )}
               </TabsTrigger>
-              <TabsTrigger value="geral" className="gap-2 text-xs sm:text-sm">
-                <Inbox className="size-4" />
-                <span>Fila Geral</span>
+              <TabsTrigger value="geral" className="gap-1.5 text-xs sm:gap-2 sm:text-sm touch-manipulation">
+                <Inbox className="size-3.5 sm:size-4" />
+                <span className="hidden sm:inline">Fila Geral</span>
+                <span className="sm:hidden">Geral</span>
                 {totalFilaGeral > 0 && (
                   <span className="rounded-full bg-muted-foreground/20 px-1.5 py-0.5 text-[10px] font-bold text-foreground">
                     {totalFilaGeral}
@@ -712,7 +719,7 @@ function ListaChamadosPage() {
                     <li
                       key={chamado.id}
                       onClick={(e) => abrirChamado(chamado.id, e)}
-                      className="cursor-pointer p-4 space-y-2 transition-soft hover:bg-muted/50"
+                      className="cursor-pointer p-3.5 sm:p-4 space-y-2.5 transition-soft hover:bg-muted/50 active:bg-muted/70 touch-manipulation"
                     >
                       <div className="flex items-center justify-between gap-2">
                         <span className="font-mono text-xs text-muted-foreground">
@@ -742,7 +749,7 @@ function ListaChamadosPage() {
 
                       {podeAssumir && chamado.tecnico === null && !encerrado ? (
                         <Button
-                          className="mt-2 w-full"
+                          className="mt-2 h-10 w-full text-xs font-medium sm:h-9 sm:text-sm touch-manipulation"
                           size="sm"
                           variant="outline"
                           disabled={assumir.isPending && String(assumindoId) === String(chamado.id)}
@@ -755,18 +762,19 @@ function ListaChamadosPage() {
                         <div className="flex items-center gap-2 pt-1">
                           <Button
                             size="sm"
-                            className="flex-1 text-green-700 dark:text-green-400"
+                            className="h-10 flex-1 text-xs font-medium text-green-700 sm:h-9 sm:text-sm dark:text-green-400 touch-manipulation"
                             variant="outline"
                             onClick={() => setResolvendoChamado(chamado)}
                           >
-                            <CheckCircle2 className="size-3.5" /> Resolver
+                            <CheckCircle2 className="size-4" /> Resolver
                           </Button>
                           <Button
                             size="sm"
+                            className="h-10 flex-1 text-xs font-medium sm:h-9 sm:text-sm touch-manipulation"
                             variant="outline"
                             onClick={() => setDevolvendoChamado(chamado)}
                           >
-                            <CornerUpLeft className="size-3.5" /> Devolver
+                            <CornerUpLeft className="size-4" /> Devolver
                           </Button>
                         </div>
                       ) : null}
