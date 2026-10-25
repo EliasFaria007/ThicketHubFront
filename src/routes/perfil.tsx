@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import {
+  Bell,
   Building,
   CheckCircle2,
   ChevronDown,
@@ -52,6 +53,13 @@ import {
 import { PAPEL_LABEL } from "@/lib/dominio";
 import { dataCurta, iniciais } from "@/lib/format";
 import { textoSeguro } from "@/lib/sanitize";
+import {
+  dispararNotificacaoNativa,
+  obterStatusPermissao,
+  solicitarPermissaoNotificacoes,
+  suportaNotificacoesWeb,
+  type StatusPermissaoWeb,
+} from "@/lib/web-push";
 import { alterarSenha, completarCadastro } from "@/services/auth";
 import { obterConfigDominios, salvarConfigDominios, type ConfigDominios } from "@/services/configuracoes";
 import { obterUsuarioLogado, salvarAssinaturaUsuario } from "@/services/usuarios";
@@ -139,6 +147,10 @@ function PerfilPage() {
               <PenLine className="size-4" />
               Assinatura
             </TabsTrigger>
+            <TabsTrigger value="notificacoes" className="gap-1.5">
+              <Bell className="size-4" />
+              Notificações
+            </TabsTrigger>
             {user.papel === "superusuario" && (
               <TabsTrigger value="dominios" className="gap-1.5">
                 <Globe className="size-4" />
@@ -181,6 +193,11 @@ function PerfilPage() {
           {/* Aba: assinatura (estilo Outlook) */}
           <TabsContent value="assinatura" className="mt-4">
             <AssinaturaForm onAtualizado={atualizarUsuario} />
+          </TabsContent>
+
+          {/* Aba: notificações e alertas de desktop */}
+          <TabsContent value="notificacoes" className="mt-4">
+            <NotificacoesTab />
           </TabsContent>
 
           {/* Aba: domínios institucionais (apenas superusuário) */}
@@ -938,6 +955,107 @@ function AssinaturaForm({
           </Button>
         </div>
       </form>
+    </section>
+  );
+}
+
+function NotificacoesTab() {
+  const [permissao, setPermissao] = useState<StatusPermissaoWeb>(obterStatusPermissao());
+  const [carregando, setCarregando] = useState(false);
+
+  async function handleSolicitar() {
+    setCarregando(true);
+    try {
+      const p = await solicitarPermissaoNotificacoes();
+      setPermissao(p);
+      if (p === "granted") {
+        toast.success("Notificações no navegador ativadas com sucesso!");
+      } else if (p === "denied") {
+        toast.info("Permissão de notificação negada nas configurações do navegador.");
+      }
+    } finally {
+      setCarregando(false);
+    }
+  }
+
+  async function handleTestar() {
+    const ok = await dispararNotificacaoNativa("ThicketHub · Teste de Notificação", {
+      body: "Seus alertas na área de trabalho estão funcionando perfeitamente!",
+      url: "/chamados",
+    });
+    if (ok) {
+      toast.success("Notificação enviada com sucesso para a área de trabalho!");
+    } else {
+      toast.error("Não foi possível enviar a notificação. Verifique as permissões.");
+    }
+  }
+
+  return (
+    <section className="surface-card p-5 space-y-6">
+      <div>
+        <h3 className="text-sm font-semibold text-foreground">Notificações no Navegador (Web Push)</h3>
+        <p className="text-xs text-muted-foreground mt-0.5">
+          Receba notificações nativas na sua área de trabalho sempre que houver novidades, respostas ou mudanças de status nos seus chamados.
+        </p>
+      </div>
+
+      <div className="rounded-lg border border-border bg-muted/20 p-4 space-y-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-semibold text-foreground">Status da Permissão no Navegador:</span>
+              {permissao === "granted" ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                  <CheckCircle2 className="size-3.5" /> Ativada
+                </span>
+              ) : permissao === "denied" ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-destructive/10 px-2 py-0.5 text-xs font-medium text-destructive">
+                  Bloqueada no navegador
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-600 dark:text-amber-400">
+                  Pendente de autorização
+                </span>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {permissao === "granted"
+                ? "O ThicketHub está autorizado a enviar alertas mesmo quando você estiver em outras abas ou programas."
+                : permissao === "denied"
+                  ? "As notificações foram bloqueadas no navegador. Para reativar, clique no ícone de cadeado na barra de endereços do navegador e permita Notificações."
+                  : "As notificações do navegador só são ativadas quando solicitadas explicitamente por você."}
+            </p>
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            {permissao === "default" && (
+              <Button
+                type="button"
+                onClick={handleSolicitar}
+                disabled={carregando}
+                size="sm"
+                className="gap-1.5 text-xs"
+              >
+                <Bell className="size-3.5" />
+                {carregando ? "Solicitando…" : "Ativar Notificações"}
+              </Button>
+            )}
+
+            {permissao === "granted" && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleTestar}
+                className="gap-1.5 text-xs"
+              >
+                <Bell className="size-3.5" />
+                Testar Alerta
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
     </section>
   );
 }

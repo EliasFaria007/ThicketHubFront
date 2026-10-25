@@ -1,7 +1,8 @@
 import { Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Bell, CheckCheck } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Bell, CheckCheck, Laptop, Send } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -10,6 +11,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { desdeAgora } from "@/lib/format";
+import {
+  dispararNotificacaoNativa,
+  obterStatusPermissao,
+  solicitarPermissaoNotificacoes,
+  suportaNotificacoesWeb,
+  type StatusPermissaoWeb,
+} from "@/lib/web-push";
 import { realtime, type StatusConexaoWs } from "@/lib/websocket";
 import { listarNotificacoes, marcarNotificacoesLidas } from "@/services/notificacoes";
 import { useAuthStore } from "@/stores/auth";
@@ -18,6 +26,12 @@ export function SinoNotificacoes() {
   const queryClient = useQueryClient();
   const token = useAuthStore((s) => s.token);
   const [statusWs, setStatusWs] = useState<StatusConexaoWs>("desconectado");
+  const [permissaoWeb, setPermissaoWeb] = useState<StatusPermissaoWeb>("unsupported");
+  const ultimosIdsVistos = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    setPermissaoWeb(obterStatusPermissao());
+  }, []);
 
   useEffect(() => {
     if (token) {
@@ -28,10 +42,20 @@ export function SinoNotificacoes() {
       setStatusWs(status);
     });
 
-    const unsubMsg = realtime.onMensagem(() => {
+    const unsubMsg = realtime.onMensagem((msg: any) => {
       void queryClient.invalidateQueries({ queryKey: ["notificacoes"] });
       void queryClient.invalidateQueries({ queryKey: ["chamados"] });
       void queryClient.invalidateQueries({ queryKey: ["metricas"] });
+
+      // Dispara notificação nativa se a permissão foi solicitada e concedida
+      if (suportaNotificacoesWeb() && obterStatusPermissao() === "granted") {
+        const titulo = msg?.titulo || msg?.mensagem || "Atualização em Chamado";
+        const corpo = msg?.protocolo ? `Protocolo #${msg.protocolo}` : "Há uma nova atualização para você.";
+        void dispararNotificacaoNativa(`ThicketHub · ${titulo}`, {
+          body: corpo,
+          url: msg?.chamadoId ? `/chamados/${msg.chamadoId}` : "/chamados",
+        });
+      }
     });
 
     return () => {
@@ -46,10 +70,55 @@ export function SinoNotificacoes() {
     refetchInterval: 30_000,
   });
 
+  // Emite notificação nativa para novos itens recebidos via polling caso o usuário não esteja com a janela ativa
+  useEffect(() => {
+    if (!data?.items || data.items.length === 0) return;
+
+    if (suportaNotificacoesWeb() && obterStatusPermissao() === "granted") {
+      const novosNaoLidos = data.items.filter(
+        (n) => !n.lida && !ultimosIdsVistos.current.has(n.id),
+      );
+
+      // Se houver novos itens e a janela estiver em segundo plano
+      if (novosNaoLidos.length > 0 && typeof document !== "undefined" && document.hidden) {
+        const primeiro = novosNaoLidos[0]!;
+        void dispararNotificacaoNativa(`ThicketHub · ${primeiro.titulo}`, {
+          body: `${primeiro.protocolo} · ${desdeAgora(primeiro.criadoEm)}`,
+          url: `/chamados/${primeiro.chamadoId}`,
+        });
+      }
+    }
+
+    // Atualiza o conjunto de ids conhecidos
+    data.items.forEach((n) => ultimosIdsVistos.current.add(n.id));
+  }, [data?.items]);
+
   const marcarTodas = useMutation({
     mutationFn: () => marcarNotificacoesLidas(),
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["notificacoes"] }),
   });
+
+  async function handleSolicitarPermissao() {
+    const res = await solicitarPermissaoNotificacoes();
+    setPermissaoWeb(res);
+    if (res === "granted") {
+      toast.success("Notificações no navegador ativadas com sucesso!");
+    } else if (res === "denied") {
+      toast.info("Notificações desativadas nas configurações do navegador.");
+    }
+  }
+
+  async function handleTestarNotificacao() {
+    const ok = await dispararNotificacaoNativa("ThicketHub · Teste de Notificação", {
+      body: "Notificações na área de trabalho funcionando perfeitamente!",
+      url: "/chamados",
+    });
+    if (ok) {
+      toast.success("Notificação de teste disparada para a sua área de trabalho!");
+    } else {
+      toast.error("Não foi possível emitir a notificação. Verifique a permissão do navegador.");
+    }
+  }
 
   const naoLidas = data?.naoLidas ?? 0;
   const itens = data?.items ?? [];
@@ -73,7 +142,7 @@ export function SinoNotificacoes() {
           ) : null}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-80 p-0">
+      <DropdownMenuContent align="end" className="w-88 p-0">
         <div className="flex items-center justify-between border-b border-border px-3 py-2">
           <div className="flex items-center gap-2">
             <p className="text-sm font-semibold">Notificações</p>
@@ -94,6 +163,49 @@ export function SinoNotificacoes() {
             </button>
           ) : null}
         </div>
+
+        {/* Faixa de controle explícito de Notificações do Navegador */}
+        {suportaNotificacoesWeb() && (
+          <div className="border-b border-border bg-muted/30 px-3 py-2 text-xs flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 text-muted-foreground min-w-0">
+              <Laptop className="size-3.5 shrink-0" />
+              {permissaoWeb === "granted" ? (
+                <span className="text-emerald-600 dark:text-emerald-400 font-medium truncate">
+                  Alertas de Desktop Ativos
+                </span>
+              ) : permissaoWeb === "denied" ? (
+                <span className="text-muted-foreground truncate">Bloqueado no navegador</span>
+              ) : (
+                <span className="truncate">Alertas de Desktop Desativados</span>
+              )}
+            </div>
+
+            {permissaoWeb === "default" && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSolicitarPermissao}
+                className="h-6 text-[11px] px-2 font-medium"
+              >
+                Ativar
+              </Button>
+            )}
+
+            {permissaoWeb === "granted" && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleTestarNotificacao}
+                className="h-6 text-[11px] px-2 text-primary hover:text-primary"
+                title="Disparar notificação de teste"
+              >
+                <Send className="mr-1 size-3" />
+                Testar
+              </Button>
+            )}
+          </div>
+        )}
+
         <div className="max-h-80 overflow-y-auto">
           {itens.length === 0 ? (
             <p className="px-3 py-6 text-center text-sm text-muted-foreground">

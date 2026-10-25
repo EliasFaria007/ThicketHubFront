@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 
+import { BannerSolicitacaoNotificacao } from "@/components/comum/BannerSolicitacaoNotificacao";
 import { BuscaRapidaModal } from "@/components/comum/BuscaRapidaModal";
 import { CompletarCadastroDialog } from "@/components/comum/CompletarCadastroDialog";
 import { SinoNotificacoes } from "@/components/comum/SinoNotificacoes";
@@ -239,6 +240,8 @@ export function AppLayout({
             </div>
           </div>
         </header>
+
+        <BannerSolicitacaoNotificacao />
 
         <main id="conteudo" className="mx-auto w-full max-w-7xl px-3 py-4 sm:px-6 sm:py-8 safe-area-pb">
           {children}
