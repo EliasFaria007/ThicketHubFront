@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, Download, FileText, Hand, ImageIcon, ImagePlus, Link2, Loader2, Paperclip, PenLine, Printer, RotateCcw, Save, Send, Share2, Star, Trash2, Undo2, Upload } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { ArrowLeft, Calendar, ClipboardCheck, Download, FileText, Hand, ImageIcon, ImagePlus, Link2, Loader2, Paperclip, PenLine, Printer, RotateCcw, Save, Send, Share2, Star, Trash2, Undo2, Upload } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { BotaoAssinaturasProntas } from "@/components/chamados/BotaoAssinaturasProntas";
@@ -16,8 +16,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { aplicarAssinatura, extrairTextoEImagemAssinatura, montarAssinaturaCompleta } from "@/lib/assinatura";
-import { arquivoParaAnexo, baixarAnexo, formatarTamanho, eArquivoImagem, extrairArquivosClipboard, FORMATOS_ACEITOS } from "@/lib/arquivos";
+import { aplicarAssinatura, extrairTextoEImagemAssinatura, montarAssinaturaCompleta, temAssinaturaNoTexto } from "@/lib/assinatura";
+import { arquivoParaAnexo, baixarAnexo, formatarTamanho, eArquivoImagem, extrairArquivosClipboard, FORMATOS_ACEITOS, salvarAnexosLocalmente } from "@/lib/arquivos";
+import { extrairRegistrosAtendimento } from "@/lib/registros-atendimento";
 import { PAPEL_LABEL, SETORES, STATUS_LABEL, STATUS_OPCOES } from "@/lib/dominio";
 import { dataHora, desdeAgora, iniciais } from "@/lib/format";
 import { textoSeguro } from "@/lib/sanitize";
@@ -29,11 +30,14 @@ import {
   comentarChamado,
   devolverChamado,
   encaminharChamado,
+  extrairAnexosEOQueFoiFeito,
+  empacotarOQueFoiFeitoComAnexos,
   obterChamado,
   pausarChamado,
   reabrirChamado,
   retomarChamado,
   vincularChamado,
+  type AtualizarChamadoPayload,
 } from "@/services/chamados";
 import { marcarNotificacoesLidas } from "@/services/notificacoes";
 import { listarUsuarios } from "@/services/usuarios";
@@ -91,20 +95,16 @@ function DetalheChamadoPage() {
   const imagensComentarioRef = useRef<HTMLInputElement>(null);
 
   const [assinaturaGraficaAtendimento, setAssinaturaGraficaAtendimento] = useState<string | null>(() => {
-    // Inicializa imediatamente com a imagem da assinatura do perfil (se configurado para incluir automaticamente)
-    if (user?.assinatura && user?.incluirAssinaturaPadrao !== false) {
+    if (user?.assinatura) {
       return extrairTextoEImagemAssinatura(user.assinatura).imagem;
     }
     return null;
   });
 
-  // Pré-preenche a assinatura (texto + imagem gráfica) quando a inclusão automática estiver ativada
+  // Carrega a assinatura gráfica configurada no perfil do usuário
   useEffect(() => {
-    if (user?.assinatura && user?.incluirAssinaturaPadrao !== false) {
-      const { texto, imagem } = extrairTextoEImagemAssinatura(user.assinatura);
-      if (texto) {
-        setOQueFoiFeito((prev) => (prev ? prev : aplicarAssinatura("", texto)));
-      }
+    if (user?.assinatura) {
+      const { imagem } = extrairTextoEImagemAssinatura(user.assinatura);
       if (imagem) {
         setAssinaturaGraficaAtendimento((prev) => prev ?? imagem);
       }
@@ -116,6 +116,11 @@ function DetalheChamadoPage() {
     queryFn: () => obterChamado(id),
     refetchInterval: 5_000, // atualiza comentários e status a cada 5s
   });
+
+  const registrosAtendimento = useMemo(
+    () => extrairRegistrosAtendimento(chamado?.oQueFoiFeito),
+    [chamado?.oQueFoiFeito],
+  );
 
   // Ao visualizar o chamado, as notificações dele deixam de estar pendentes.
   useEffect(() => {
@@ -147,13 +152,12 @@ function DetalheChamadoPage() {
   }
 
   const atualizacao = useMutation({
-    mutationFn: (payload: { status?: StatusChamado; prioridade?: PrioridadeChamado; oQueFoiFeito?: string; anexos?: Anexo[] }) =>
+    mutationFn: (payload: AtualizarChamadoPayload) =>
       atualizarChamado(id, { ...payload, versao: chamado?.versao ?? 1 }),
     onSuccess: (_, vars) => {
       setOQueFoiFeito("");
       setNovoStatus("");
       setImagensAtendimento([]);
-      setAssinaturaGraficaAtendimento(null);
       // Ao resolver ou cancelar, o chamado sai da fila ativa do técnico
       if (vars.status === "resolvido" || vars.status === "cancelado") {
         void queryClient.invalidateQueries({ queryKey: ["chamados", "contagem-minha"] });
@@ -184,40 +188,54 @@ function DetalheChamadoPage() {
 
       const { imagem: imagemAssinaturaPerfil } = extrairTextoEImagemAssinatura(user?.assinatura);
       const imagemAss = assinaturaGraficaAtendimento || imagemAssinaturaPerfil;
-      if (imagemAss && user?.incluirAssinaturaPadrao !== false) {
-        const jaExiste = todosAnexos.some((a) => a.url === imagemAss || a.nome.toLowerCase().includes("assinatura"));
-        if (!jaExiste) {
-          todosAnexos.push({
-            id: `anx-ass-${Date.now()}`,
-            nome: `Assinatura - ${user?.nome ?? "Atendente"}.png`,
-            tamanho: Math.round(imagemAss.length * 0.75),
-            url: imagemAss,
-          });
+
+      let novoTextoRegistro = oQueFoiFeito.trim();
+
+      // Aplica assinatura ao texto do novo registro se houver
+      if (novoTextoRegistro) {
+        if (user?.assinatura) {
+          const { texto: textoAss } = extrairTextoEImagemAssinatura(user.assinatura);
+          if (textoAss && !temAssinaturaNoTexto(novoTextoRegistro, textoAss)) {
+            novoTextoRegistro = aplicarAssinatura(novoTextoRegistro, textoAss);
+          }
+        }
+        if (imagemAss && !novoTextoRegistro.includes("[ASSINATURA_IMAGEM:")) {
+          novoTextoRegistro = montarAssinaturaCompleta(novoTextoRegistro, imagemAss);
         }
       }
 
-      const payload: { status?: StatusChamado; oQueFoiFeito?: string; anexos?: Anexo[] } = {};
+      // Constrói o histórico de "O que foi feito", separando claramente cada novo registro
+      let oQueFoiFeitoFinal = chamado?.oQueFoiFeito ?? "";
+      if (novoTextoRegistro) {
+        const agora = new Date().toLocaleString("pt-BR", {
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+        const autorNome = user?.nome ?? "Técnico";
+        const setorNome = user?.setor ? ` (${user.setor})` : "";
+        const blocoNovo = `### 📋 Registro de Atendimento — ${agora} · ${autorNome}${setorNome}\n\n${novoTextoRegistro}`;
+
+        oQueFoiFeitoFinal = oQueFoiFeitoFinal.trim()
+          ? `${oQueFoiFeitoFinal.trim()}\n\n---\n\n${blocoNovo}`
+          : blocoNovo;
+      }
+
+      const payload: AtualizarChamadoPayload = {};
       if (novoStatus && novoStatus !== chamado?.status) payload.status = statusFinal;
-      let textoFinal = oQueFoiFeito.trim() || chamado?.oQueFoiFeito || "";
-      if (textoFinal && user?.assinatura && user?.incluirAssinaturaPadrao !== false) {
-        const { texto: textoAss } = extrairTextoEImagemAssinatura(user.assinatura);
-        textoFinal = aplicarAssinatura(textoFinal, textoAss);
-      }
-      if (imagemAss && textoFinal && user?.incluirAssinaturaPadrao !== false) {
-        textoFinal = montarAssinaturaCompleta(textoFinal, imagemAss);
-      }
-      if (textoFinal) payload.oQueFoiFeito = textoFinal;
-      // SEMPRE envia todos os anexos para manter preservadas todas as imagens
+      if (oQueFoiFeitoFinal) payload.oQueFoiFeito = oQueFoiFeitoFinal;
       payload.anexos = todosAnexos;
 
-      if (!payload.status && !oQueFoiFeito.trim() && novosAnexos.length === 0) {
+      if (!payload.status && !novoTextoRegistro && novosAnexos.length === 0) {
         toast.info("Nenhuma alteração para salvar.");
         return;
       }
 
       atualizacao.mutate(payload);
     } catch (err: any) {
-      toast.error("Erro ao processar imagens", { description: err?.message });
+      toast.error("Erro ao processar atendimento", { description: err?.message });
     } finally {
       setSalvandoImagens(false);
     }
@@ -226,19 +244,38 @@ function DetalheChamadoPage() {
   function removerAnexoSalvo(anexoId: string) {
     if (!chamado) return;
     const anexosRestantes = (chamado.anexos ?? []).filter((a) => a.id !== anexoId);
+
+    // 1. Atualiza imediatamente o cache local para a exclusão ser instantânea
+    salvarAnexosLocalmente(id, anexosRestantes);
+
+    // 2. Remove anexo da descrição (caso tenha sido enviado na abertura)
+    const { oQueFoiFeito: descLimpa, anexos: anxDesc } = extrairAnexosEOQueFoiFeito(chamado.descricao);
+    const anxDescRestantes = anxDesc.filter((a) => a.id !== anexoId);
+    const novaDescricao = empacotarOQueFoiFeitoComAnexos(descLimpa ?? "", anxDescRestantes);
+
+    // 3. Remove anexo de oQueFoiFeito (caso tenha sido enviado no atendimento)
+    const { oQueFoiFeito: feitoLimpo, anexos: anxFeito } = extrairAnexosEOQueFoiFeito(chamado.oQueFoiFeito);
+    const anxFeitoRestantes = anxFeito.filter((a) => a.id !== anexoId);
+    const novoOQueFoiFeito = empacotarOQueFoiFeitoComAnexos(feitoLimpo ?? "", anxFeitoRestantes);
+
+    // 4. Envia payload sincronizado para o backend persistir a exclusão em ambos os campos
     atualizacao.mutate({
       anexos: anexosRestantes,
-      oQueFoiFeito: chamado.oQueFoiFeito ?? "",
+      descricao: novaDescricao,
+      oQueFoiFeito: novoOQueFoiFeito,
     });
+    toast.success("Anexo excluído com sucesso.");
   }
 
   const comentario = useMutation({
     mutationFn: async () => {
       let textoComentario = mensagem.trim();
-      if (!interno && user?.assinatura && user?.incluirAssinaturaPadrao !== false) {
+      if (!interno && user?.assinatura) {
         const { texto: textoAss, imagem: imagemAss } = extrairTextoEImagemAssinatura(user.assinatura);
-        textoComentario = aplicarAssinatura(textoComentario, textoAss);
-        if (imagemAss) {
+        if (textoAss && !temAssinaturaNoTexto(textoComentario, textoAss)) {
+          textoComentario = aplicarAssinatura(textoComentario, textoAss);
+        }
+        if (imagemAss && !textoComentario.includes("[ASSINATURA_IMAGEM:")) {
           textoComentario = montarAssinaturaCompleta(textoComentario, imagemAss);
         }
       }
@@ -392,13 +429,51 @@ function DetalheChamadoPage() {
               conteudo={chamado.descricao}
               className="mt-4 text-sm leading-relaxed text-foreground"
             />
-            {chamado.oQueFoiFeito && (
-              <div className="mt-4 rounded-lg border border-border bg-muted/50 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">O que foi feito</p>
-                <TextoFormatadoComAssinatura
-                  conteudo={chamado.oQueFoiFeito}
-                  className="mt-1 text-sm text-foreground"
-                />
+            {chamado.oQueFoiFeito && registrosAtendimento.length > 0 && (
+              <div className="mt-5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ClipboardCheck className="size-4 text-primary" />
+                    <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Registros do Atendimento ({registrosAtendimento.length})
+                    </h3>
+                  </div>
+                  <span className="text-xs text-muted-foreground">Histórico cronológico de procedimentos</span>
+                </div>
+                <div className="space-y-3">
+                  {registrosAtendimento.map((reg, idx) => (
+                    <div
+                      key={reg.id || idx}
+                      className="rounded-lg border border-border bg-card p-4 shadow-xs transition-shadow hover:shadow-sm"
+                    >
+                      <div className="mb-3 flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-2.5">
+                        <div className="flex items-center gap-2">
+                          <span className="flex size-5 items-center justify-center rounded-full bg-primary/10 text-[11px] font-bold text-primary">
+                            {idx + 1}
+                          </span>
+                          <span className="text-xs font-semibold text-foreground">
+                            {reg.autor || "Registro de Atendimento"}
+                          </span>
+                          {reg.setor && (
+                            <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                              {reg.setor}
+                            </span>
+                          )}
+                        </div>
+                        {reg.data && (
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Calendar className="size-3 text-muted-foreground/80" />
+                            <span>{reg.data}</span>
+                          </div>
+                        )}
+                      </div>
+                      <TextoFormatadoComAssinatura
+                        conteudo={reg.conteudo}
+                        className="text-sm leading-relaxed text-foreground"
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -490,7 +565,7 @@ function DetalheChamadoPage() {
               <h2 className="text-sm font-semibold text-foreground">Registrar atendimento</h2>
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="oQueFoiFeito">O que foi feito</Label>
+                  <Label htmlFor="oQueFoiFeito">Novo registro de atendimento</Label>
                   <BotaoAssinaturasProntas
                     usuario={user}
                     label="Assinaturas prontas"
@@ -507,7 +582,7 @@ function DetalheChamadoPage() {
                   rows={8}
                   className="min-h-[180px]"
                   value={oQueFoiFeito}
-                  placeholder="Descreva o procedimento realizado. Obrigatório para resolver o chamado. (Você também pode colar prints ou arquivos com Ctrl+V aqui)"
+                  placeholder="Descreva o procedimento realizado nesta etapa... Cada registro é adicionado com data, hora e autor. (Você também pode colar prints ou arquivos com Ctrl+V aqui)"
                   onChange={(e) => setOQueFoiFeito(e.target.value)}
                   onPaste={(e) => {
                     const colados = extrairArquivosClipboard(e);
@@ -518,11 +593,11 @@ function DetalheChamadoPage() {
                   }}
                 />
 
-                {/* Preview da assinatura gráfica configurada no perfil */}
+                {/* Preview da assinatura gráfica institucional */}
                 {assinaturaGraficaAtendimento && (
                   <div className="space-y-1">
                     <p className="text-xs text-muted-foreground">
-                      Assinatura gráfica do perfil — será incluída automaticamente ao salvar:
+                      Assinatura institucional vinculada — será gravada neste registro:
                     </p>
                     <div className="group relative max-w-xs overflow-hidden rounded-lg border border-primary/30 bg-muted">
                       <img

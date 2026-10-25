@@ -73,13 +73,14 @@ function adaptarChamado(c: any): Chamado {
   const { oQueFoiFeito, anexos: anexosExtraidos } = extrairAnexosEOQueFoiFeito(c.oQueFoiFeito);
   const { oQueFoiFeito: descLimpa, anexos: anexosDescricao } = extrairAnexosEOQueFoiFeito(c.descricao);
   const anexosApi = Array.isArray(c.anexos) ? c.anexos : [];
+  
+  // Fonte da verdade: anexos persistidos no backend (API ou empacotados em oQueFoiFeito e descricao)
+  const anexosPersistidos = [...anexosApi, ...anexosDescricao, ...anexosExtraidos];
   const anexosLocais = obterAnexosLocalmente(idStr);
-  const anexosCombinados = [...anexosApi, ...anexosDescricao, ...anexosExtraidos, ...anexosLocais];
-  const anexos = Array.from(new Map(anexosCombinados.map((a: Anexo) => [a.id || a.nome, a])).values());
+  const baseAnexos = anexosPersistidos.length > 0 ? anexosPersistidos : anexosLocais;
+  const anexos = Array.from(new Map(baseAnexos.map((a: Anexo) => [a.id || a.nome, a])).values());
 
-  if (anexos.length > 0) {
-    salvarAnexosLocalmente(idStr, anexos);
-  }
+  salvarAnexosLocalmente(idStr, anexos);
 
   return {
     ...c,
@@ -263,6 +264,7 @@ export interface AtualizarChamadoPayload {
   status?: StatusChamado;
   prioridade?: PrioridadeChamado;
   oQueFoiFeito?: string;
+  descricao?: string;
   versao?: number;
   anexos?: Anexo[];
 }
@@ -270,19 +272,22 @@ export interface AtualizarChamadoPayload {
 export async function atualizarChamado(id: string | number, payload: AtualizarChamadoPayload): Promise<Chamado> {
   const { anexos, ...resto } = payload;
   let oQueFoiFeitoEnviado = resto.oQueFoiFeito;
+  let descricaoEnviada = resto.descricao;
 
   const anexosFinais = anexos !== undefined ? anexos : obterAnexosLocalmente(id);
 
   if (anexosFinais.length > 0 || anexos !== undefined) {
-    oQueFoiFeitoEnviado = empacotarOQueFoiFeitoComAnexos(oQueFoiFeitoEnviado ?? "", anexosFinais);
+    if (oQueFoiFeitoEnviado !== undefined) {
+      oQueFoiFeitoEnviado = empacotarOQueFoiFeitoComAnexos(oQueFoiFeitoEnviado ?? "", anexosFinais);
+    }
   }
 
-  if (anexosFinais.length > 0) {
-    salvarAnexosLocalmente(id, anexosFinais);
-  }
+  // Atualiza cache local imediatamente
+  salvarAnexosLocalmente(id, anexosFinais);
 
   const data = await apiPut<any>(`/chamados/${id}`, {
     ...resto,
+    ...(descricaoEnviada !== undefined ? { descricao: descricaoEnviada } : {}),
     ...(oQueFoiFeitoEnviado !== undefined ? { oQueFoiFeito: oQueFoiFeitoEnviado } : {}),
     ...(anexosFinais.length > 0 ? { anexos: anexosFinais } : {}),
   });
