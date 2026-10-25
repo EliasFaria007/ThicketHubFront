@@ -94,20 +94,27 @@ function DetalheChamadoPage() {
   const [arrastandoAtendimento, setArrastandoAtendimento] = useState(false);
   const imagensComentarioRef = useRef<HTMLInputElement>(null);
 
+  const [imagemAssinaturaEmVisualizacao, setImagemAssinaturaEmVisualizacao] = useState<string | null>(null);
+
   const [assinaturaGraficaAtendimento, setAssinaturaGraficaAtendimento] = useState<string | null>(() => {
-    if (user?.assinatura) {
+    // Só carrega automaticamente se o usuário ativou "incluir assinatura automaticamente"
+    if (user?.assinatura && user?.incluirAssinaturaPadrao !== false) {
       return extrairTextoEImagemAssinatura(user.assinatura).imagem;
     }
     return null;
   });
 
-  // Carrega a assinatura gráfica configurada no perfil do usuário
+  // Sincroniza a assinatura gráfica quando o perfil do usuário muda
   useEffect(() => {
-    if (user?.assinatura) {
+    if (user?.assinatura && user?.incluirAssinaturaPadrao !== false) {
       const { imagem } = extrairTextoEImagemAssinatura(user.assinatura);
       if (imagem) {
         setAssinaturaGraficaAtendimento((prev) => prev ?? imagem);
       }
+    }
+    // Se o toggle foi desmarcado, limpa a assinatura automática
+    if (user?.incluirAssinaturaPadrao === false) {
+      setAssinaturaGraficaAtendimento(null);
     }
   }, [user]);
 
@@ -186,21 +193,23 @@ function DetalheChamadoPage() {
       const anexosAtuais = chamado?.anexos ?? [];
       const todosAnexos = [...anexosAtuais, ...novosAnexos];
 
-      const { imagem: imagemAssinaturaPerfil } = extrairTextoEImagemAssinatura(user?.assinatura);
-      const imagemAss = assinaturaGraficaAtendimento || imagemAssinaturaPerfil;
+      // Assinatura: respeita o toggle. A variável assinaturaGraficaAtendimento só é não-nula
+      // quando o técnico a adicionou manualmente (via BotaoAssinaturas) ou quando o toggle
+      // "incluir assinatura automaticamente" estava ATIVADO no momento da carga da página.
+      // Se desmarcado, o useEffect já limpa assinaturaGraficaAtendimento para null.
 
       let novoTextoRegistro = oQueFoiFeito.trim();
 
-      // Aplica assinatura ao texto do novo registro se houver
-      if (novoTextoRegistro) {
+      // Aplica assinatura ao texto do novo registro — SOMENTE se o toggle "incluir automaticamente" estiver ativado
+      if (novoTextoRegistro && user?.incluirAssinaturaPadrao !== false) {
         if (user?.assinatura) {
           const { texto: textoAss } = extrairTextoEImagemAssinatura(user.assinatura);
           if (textoAss && !temAssinaturaNoTexto(novoTextoRegistro, textoAss)) {
             novoTextoRegistro = aplicarAssinatura(novoTextoRegistro, textoAss);
           }
         }
-        if (imagemAss && !novoTextoRegistro.includes("[ASSINATURA_IMAGEM:")) {
-          novoTextoRegistro = montarAssinaturaCompleta(novoTextoRegistro, imagemAss);
+        if (assinaturaGraficaAtendimento && !novoTextoRegistro.includes("[ASSINATURA_IMAGEM:")) {
+          novoTextoRegistro = montarAssinaturaCompleta(novoTextoRegistro, assinaturaGraficaAtendimento);
         }
       }
 
@@ -270,7 +279,8 @@ function DetalheChamadoPage() {
   const comentario = useMutation({
     mutationFn: async () => {
       let textoComentario = mensagem.trim();
-      if (!interno && user?.assinatura) {
+      // Assinatura em comentários: respeita o toggle "incluir automaticamente"
+      if (!interno && user?.assinatura && user?.incluirAssinaturaPadrao !== false) {
         const { texto: textoAss, imagem: imagemAss } = extrairTextoEImagemAssinatura(user.assinatura);
         if (textoAss && !temAssinaturaNoTexto(textoComentario, textoAss)) {
           textoComentario = aplicarAssinatura(textoComentario, textoAss);
@@ -597,22 +607,35 @@ function DetalheChamadoPage() {
                 {assinaturaGraficaAtendimento && (
                   <div className="space-y-1">
                     <p className="text-xs text-muted-foreground">
-                      Assinatura institucional vinculada — será gravada neste registro:
+                      Assinatura gráfica vinculada — será incluída neste registro:
                     </p>
                     <div className="group relative max-w-xs overflow-hidden rounded-lg border border-primary/30 bg-muted">
-                      <img
-                        src={assinaturaGraficaAtendimento}
-                        alt="Assinatura gráfica"
-                        className="h-16 w-full object-contain bg-white dark:bg-card p-1.5"
-                      />
                       <button
                         type="button"
-                        className="absolute right-1.5 top-1.5 hidden group-hover:flex size-5 items-center justify-center rounded bg-black/50 text-white hover:bg-red-500/80"
-                        title="Remover assinatura gráfica do atendimento"
-                        onClick={() => setAssinaturaGraficaAtendimento(null)}
+                        className="block w-full"
+                        title="Clique para expandir a assinatura"
+                        onClick={() => setImagemAssinaturaEmVisualizacao(assinaturaGraficaAtendimento)}
                       >
-                        <Trash2 className="size-3" />
+                        <img
+                          src={assinaturaGraficaAtendimento}
+                          alt="Assinatura gráfica"
+                          className="h-16 w-full object-contain bg-white dark:bg-card p-1.5 transition-opacity group-hover:opacity-80"
+                        />
                       </button>
+                      <div className="absolute inset-x-0 bottom-0 hidden group-hover:flex items-center justify-between bg-black/60 px-2 py-1">
+                        <span className="text-[10px] text-white/80">Clique para expandir</span>
+                        <button
+                          type="button"
+                          className="grid size-5 place-items-center rounded bg-red-500/80 text-white hover:bg-red-600"
+                          title="Remover assinatura gráfica deste registro"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setAssinaturaGraficaAtendimento(null);
+                          }}
+                        >
+                          <Trash2 className="size-3" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -1383,7 +1406,7 @@ function DetalheChamadoPage() {
         </aside>
       </div>
 
-      {/* Modal para visualizar imagem em tamanho expandido */}
+      {/* Modal para visualizar imagem em tamanho expandido (anexos) */}
       <Dialog open={Boolean(imagemEmVisualizacao)} onOpenChange={(aberto) => !aberto && setImagemEmVisualizacao(null)}>
         <DialogContent className="max-w-3xl p-4">
           {imagemEmVisualizacao && (
@@ -1409,6 +1432,29 @@ function DetalheChamadoPage() {
                   className="max-h-[70vh] w-auto max-w-full rounded object-contain"
                 />
               </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal para visualizar assinatura gráfica em tamanho expandido */}
+      <Dialog open={Boolean(imagemAssinaturaEmVisualizacao)} onOpenChange={(aberto) => !aberto && setImagemAssinaturaEmVisualizacao(null)}>
+        <DialogContent className="max-w-xl p-4">
+          {imagemAssinaturaEmVisualizacao && (
+            <div className="space-y-3">
+              <DialogHeader>
+                <DialogTitle className="text-sm font-medium">Assinatura Gráfica Institucional</DialogTitle>
+              </DialogHeader>
+              <div className="grid place-items-center rounded-lg bg-white dark:bg-card p-4 border border-border">
+                <img
+                  src={imagemAssinaturaEmVisualizacao}
+                  alt="Assinatura gráfica expandida"
+                  className="max-h-[50vh] w-auto max-w-full rounded object-contain"
+                />
+              </div>
+              <p className="text-center text-xs text-muted-foreground">
+                Esta assinatura é vinculada automaticamente ao salvar o atendimento quando o toggle "incluir assinatura" está ativado no perfil.
+              </p>
             </div>
           )}
         </DialogContent>
