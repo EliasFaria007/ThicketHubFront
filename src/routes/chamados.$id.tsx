@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { BotaoAssinaturasProntas } from "@/components/chamados/BotaoAssinaturasProntas";
+import { ModalOrdemServico } from "@/components/chamados/ModalOrdemServico";
 import { PrioridadeBadge, SlaBadge, StatusBadge } from "@/components/chamados/StatusBadge";
 import { TextoFormatadoComAssinatura } from "@/components/chamados/TextoFormatadoComAssinatura";
 import { MensagemErro } from "@/components/comum/MensagemErro";
@@ -95,6 +96,7 @@ function DetalheChamadoPage() {
   const imagensComentarioRef = useRef<HTMLInputElement>(null);
 
   const [imagemAssinaturaEmVisualizacao, setImagemAssinaturaEmVisualizacao] = useState<string | null>(null);
+  const [modalOsAberta, setModalOsAberta] = useState(false);
 
   const [assinaturaGraficaAtendimento, setAssinaturaGraficaAtendimento] = useState<string | null>(() => {
     // Só carrega automaticamente se o usuário ativou "incluir assinatura automaticamente"
@@ -415,6 +417,9 @@ function DetalheChamadoPage() {
       descricao={`Protocolo ${chamado.protocolo} · aberto ${desdeAgora(chamado.criadoEm)}`}
       acoes={
         <>
+          <Button variant="outline" size="sm" onClick={() => setModalOsAberta(true)}>
+            <FileText className="mr-1.5 size-4" /> Ordem de Serviço (PDF)
+          </Button>
           <Button variant="outline" size="sm" onClick={() => window.print()}>
             <Printer className="size-4" /> Imprimir
           </Button>
@@ -1459,6 +1464,14 @@ function DetalheChamadoPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Modal de visualização e emissão da Ordem de Serviço (PDF) */}
+      <ModalOrdemServico
+        aberto={modalOsAberta}
+        aoMudarAberto={setModalOsAberta}
+        chamado={chamado}
+        usuarioLogado={user ?? undefined}
+      />
     </AppLayout>
   );
 }

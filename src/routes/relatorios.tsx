@@ -5,6 +5,7 @@ import {
   BarChart3,
   Clock,
   Download,
+  FileText,
   LayoutGrid,
   PieChart as PieChartIcon,
   Printer,
@@ -34,6 +35,7 @@ import { MensagemErro } from "@/components/comum/MensagemErro";
 import { SkeletonTabela } from "@/components/comum/Skeletons";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { RotaProtegida } from "@/components/layout/RotaProtegida";
+import { ModalRelatorioExecutivo } from "@/components/relatorios/ModalRelatorioExecutivo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -42,6 +44,7 @@ import { dataHora } from "@/lib/format";
 import { listarServicos } from "@/services/catalogo";
 import { obterRelatorios } from "@/services/relatorios";
 import { listarUsuarios } from "@/services/usuarios";
+import { useAuthStore } from "@/stores/auth";
 import type { FiltrosRelatorio, PrioridadeChamado, Relatorios, StatusChamado } from "@/types";
 
 export const Route = createFileRoute("/relatorios")({
@@ -141,8 +144,10 @@ const CORES_PIE = [
 ];
 
 function RelatoriosPage() {
+  const user = useAuthStore((s) => s.user);
   const [filtros, setFiltros] = useState<FiltrosRelatorio>(FILTROS_INICIAIS);
   const [modoExibicao, setModoExibicao] = useState<"todos" | "graficos" | "tabelas">("todos");
+  const [modalExecutivoAberta, setModalExecutivoAberta] = useState(false);
 
   const { data, isPending, isError, error, isFetching } = useQuery({
     queryKey: ["relatorios", filtros],
@@ -208,6 +213,14 @@ function RelatoriosPage() {
       descricao="Indicadores de atendimento, SLA, desempenho e satisfação"
       acoes={
         <div className="hidden gap-2 sm:flex print:hidden">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setModalExecutivoAberta(true)}
+            disabled={!data}
+          >
+            <FileText aria-hidden className="mr-1.5 size-4" /> Relatório Executivo (PDF)
+          </Button>
           <Button variant="outline" size="sm" onClick={() => window.print()}>
             <Printer aria-hidden className="mr-1.5 size-4" /> Imprimir
           </Button>
@@ -808,6 +821,16 @@ function RelatoriosPage() {
           </div>
         )}
       </div>
+
+      {data && (
+        <ModalRelatorioExecutivo
+          aberto={modalExecutivoAberta}
+          aoMudarAberto={setModalExecutivoAberta}
+          relatorios={data}
+          filtros={filtros}
+          usuarioLogado={user ?? undefined}
+        />
+      )}
     </AppLayout>
   );
 }
