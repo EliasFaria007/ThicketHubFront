@@ -1,6 +1,7 @@
 import { PRIORIDADE_LABEL, STATUS_LABEL } from "./dominio";
 import { extrairTextoEImagemAssinatura } from "./assinatura";
 import { extrairRegistrosAtendimento, type RegistroAtendimentoItem } from "./registros-atendimento";
+import { resumoSla } from "./sla";
 import { extrairAnexosEOQueFoiFeito } from "@/services/chamados";
 import type { Anexo, Chamado, PrioridadeChamado, Relatorios, StatusChamado } from "@/types";
 
@@ -151,30 +152,43 @@ export function obterDadosOrdemServico(
   const assExtraida = extrairTextoEImagemAssinatura(chamado.oQueFoiFeito);
   const temAssinaturaDigital = Boolean(assExtraida.imagem);
 
-  // Status SLA
+  // Status SLA compatível com o motor de SLA do front e backend
+  const sla = resumoSla(chamado);
   let slaStatus = "Dentro do prazo";
-  if (chamado.status === "resolvido" || chamado.status === "concluido" || chamado.status === "fechado") {
-    slaStatus = chamado.slaViolado ? "Resolvido fora do prazo" : "Cumprido no prazo";
-  } else if (chamado.slaViolado) {
+  const resolvido = chamado.status === "resolvido" || (chamado.status as string) === "concluido" || (chamado.status as string) === "fechado";
+
+  if (resolvido) {
+    slaStatus = sla.situacao === "atrasado" || (chamado as any).slaViolado ? "Resolvido fora do prazo" : "Cumprido no prazo";
+  } else if (sla.situacao === "atrasado" || (chamado as any).slaViolado) {
     slaStatus = "Prazo violado (Atrasado)";
+  } else if (sla.situacao === "atencao") {
+    slaStatus = "Atenção (80% do tempo consumido)";
   }
+
+  // Solicitante e Técnico (compatível com Chamado adaptado e ChamadoDetalheResponse bruto do backend)
+  const solicitanteNome =
+    chamado.solicitante?.nome || (chamado as any).solicitanteNome || "Solicitante não identificado";
+  const solicitanteEmail = chamado.solicitante?.email || (chamado as any).solicitanteEmail;
+  const tecnicoNome = chamado.tecnico?.nome || (chamado as any).tecnicoNome || "Não atribuído";
+  const tecnicoEmail = (chamado.tecnico as any)?.email || (chamado as any).tecnicoEmail;
+  const prazoLimite = (chamado as any).prazoLimite || (chamado as any).prazoSla;
 
   return {
     protocolo: chamado.protocolo,
     titulo: chamado.titulo,
     descricaoLimpa: descLimpa || chamado.descricao || "",
-    solicitanteNome: chamado.solicitanteNome || "Solicitante não identificado",
-    solicitanteEmail: chamado.solicitanteEmail,
+    solicitanteNome,
+    solicitanteEmail,
     solicitanteSetor: chamado.setor,
-    tecnicoNome: chamado.tecnicoNome || "Não atribuído",
-    tecnicoEmail: chamado.tecnicoEmail,
+    tecnicoNome,
+    tecnicoEmail,
     servicoNome: chamado.servicoNome || "Serviço geral",
     setor: chamado.setor,
     statusFormatado: STATUS_LABEL[chamado.status as StatusChamado] || chamado.status,
     prioridadeFormatada: PRIORIDADE_LABEL[chamado.prioridade as PrioridadeChamado] || chamado.prioridade,
-    criadoEmFormatado: formatarData(chamado.criadoEm),
+    criadoEmFormatado: formatarData(chamado.criadoEm || (chamado as any).dataAbertura),
     resolvidoEmFormatado: chamado.resolvidoEm ? formatarData(chamado.resolvidoEm) : undefined,
-    prazoSlaFormatado: chamado.prazoSla ? formatarData(chamado.prazoSla) : undefined,
+    prazoSlaFormatado: prazoLimite ? formatarData(prazoLimite) : undefined,
     slaStatus,
     anexos: anexosUnicos,
     registrosAtendimento: registros,

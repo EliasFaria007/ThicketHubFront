@@ -133,4 +133,43 @@ describe("exportacao-pdf - Funções utilitárias de relatórios e O.S.", () => 
     expect(os.temAssinaturaDigital).toBe(true);
     expect(os.assinaturaImagem).toBe("data:image/png;base64,signature123");
   });
+
+  it("extrai dados da O.S. a partir do objeto Chamado com solicitante e tecnico aninhados", () => {
+    const chamadoAdaptado: any = {
+      id: "2",
+      protocolo: "20261025-0099",
+      titulo: "Sem acesso ao sistema de e-mails",
+      descricao: "Favor verificar desbloqueio de conta institucional.",
+      status: "em_atendimento",
+      prioridade: "media",
+      setor: "TI",
+      servicoId: "srv-2",
+      servicoNome: "Acesso e Contas",
+      solicitante: {
+        id: "usr-2",
+        nome: "João Pereira",
+        email: "joao@empresa.com",
+      },
+      tecnico: {
+        id: "tec-1",
+        nome: "Carlos Souza",
+      },
+      criadoEm: "2026-10-25T11:00:00Z",
+      slaAtendimentoHoras: 2,
+      slaResolucaoHoras: 8,
+      slaConsumidoMs: 3600000,
+      slaRodandoDesde: "2026-10-25T12:00:00Z",
+      prazoLimite: "2026-10-25T19:00:00Z",
+    };
+
+    const os = obterDadosOrdemServico(chamadoAdaptado);
+
+    expect(os.protocolo).toBe("20261025-0099");
+    expect(os.solicitanteNome).toBe("João Pereira");
+    expect(os.solicitanteEmail).toBe("joao@empresa.com");
+    expect(os.tecnicoNome).toBe("Carlos Souza");
+    expect(os.statusFormatado).toBe("Em atendimento");
+    expect(os.prioridadeFormatada).toBe("Média");
+    expect(os.prazoSlaFormatado).toBeDefined();
+  });
 });
