@@ -9,21 +9,140 @@ export interface OpcoesExportacaoPptx {
   usuarioLogado?: { nome?: string; papel?: string };
 }
 
+// ─── Paleta de cores ThicketHub ───────────────────────────────────────────────
+const COR = {
+  AZUL_ESCURO: "1E3A8A",
+  AZUL_MEDIO: "2563EB",
+  AZUL_CLARO: "EFF6FF",
+  AZUL_BORDA: "BFDBFE",
+  VERDE: "16A34A",
+  VERDE_CLARO: "F0FDF4",
+  VERDE_BORDA: "BBF7D0",
+  AMARELO: "D97706",
+  AMARELO_CLARO: "FFFBEB",
+  VERMELHO: "DC2626",
+  VERMELHO_CLARO: "FEF2F2",
+  CINZA_FUNDO: "F8FAFC",
+  CINZA_BORDA: "E2E8F0",
+  CINZA_LINHA: "F1F5F9",
+  TEXTO_ESCURO: "0F172A",
+  TEXTO_MUTED: "64748B",
+  BRANCO: "FFFFFF",
+  CAPA_FUNDO: "0F172A",
+  CAPA_ACENTO: "1E293B",
+} as const;
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+function adicionarRodape(slide: pptxgen.Slide, agora: string) {
+  slide.addText(
+    [
+      { text: "ThicketHub · Relatório Gerencial Executivo", options: { bold: true } },
+      { text: `  ·  Emitido em ${agora}`, options: { color: COR.TEXTO_MUTED } },
+    ],
+    {
+      x: 0.4,
+      y: 6.9,
+      w: 12.5,
+      h: 0.28,
+      fontSize: 7.5,
+      color: COR.TEXTO_MUTED,
+      fontFace: "Calibri",
+    },
+  );
+  // Linha divisória do rodapé
+  slide.addShape("line" as pptxgen.ShapeType, {
+    x: 0.4,
+    y: 6.88,
+    w: 12.5,
+    h: 0,
+    line: { color: COR.CINZA_BORDA, width: 0.5 },
+  });
+}
+
+function adicionarCabecalhoSecao(
+  slide: pptxgen.Slide,
+  numero: string,
+  titulo: string,
+  subtitulo: string,
+  agora: string,
+) {
+  // Faixa superior de cor sólida
+  slide.addShape(pptx.ShapeType.rect, {
+    x: 0,
+    y: 0,
+    w: "100%",
+    h: 1.05,
+    fill: { color: COR.AZUL_ESCURO },
+    line: { color: COR.AZUL_ESCURO },
+  });
+
+  // Número da seção em destaque
+  slide.addText(numero, {
+    x: 0.4,
+    y: 0.08,
+    w: 0.55,
+    h: 0.55,
+    fontSize: 22,
+    bold: true,
+    color: COR.AZUL_MEDIO,
+    align: "center",
+    valign: "middle",
+    fontFace: "Calibri",
+  });
+
+  // Linha separadora vertical
+  slide.addShape("line" as pptxgen.ShapeType, {
+    x: 1.05,
+    y: 0.12,
+    w: 0,
+    h: 0.78,
+    line: { color: COR.AZUL_MEDIO, width: 1 },
+  });
+
+  // Título e subtítulo
+  slide.addText(titulo, {
+    x: 1.2,
+    y: 0.1,
+    w: 11.0,
+    h: 0.42,
+    fontSize: 17,
+    bold: true,
+    color: COR.BRANCO,
+    valign: "bottom",
+    fontFace: "Calibri",
+  });
+  slide.addText(subtitulo, {
+    x: 1.2,
+    y: 0.52,
+    w: 11.0,
+    h: 0.38,
+    fontSize: 10,
+    color: "93C5FD",
+    valign: "top",
+    fontFace: "Calibri",
+  });
+
+  adicionarRodape(slide, agora);
+}
+
+// Instância global para uso nos helpers
+let pptx: pptxgen;
+
 /**
- * Monta e faz o download de uma apresentação em PowerPoint (.pptx)
- * contendo o Relatório Gerencial Executivo e Indicadores do ThicketHub.
+ * Gera e faz o download de uma apresentação PowerPoint profissional
+ * com o Relatório Gerencial Executivo do ThicketHub.
  */
 export async function exportarRelatorioExecutivoPptx({
   relatorios,
   filtros,
   usuarioLogado,
 }: OpcoesExportacaoPptx): Promise<void> {
-  const pptx = new pptxgen();
+  pptx = new pptxgen();
 
   pptx.layout = "LAYOUT_16x9";
-  pptx.author = usuarioLogado?.nome || "ThicketHub Central de Chamados";
-  pptx.company = "ThicketHub";
-  pptx.title = "Relatório Gerencial Executivo - Atendimento e SLA";
+  pptx.author = usuarioLogado?.nome || "ThicketHub";
+  pptx.company = "ThicketHub · Central de Chamados e Governança de TI";
+  pptx.title = "Relatório Gerencial Executivo — ThicketHub";
 
   const metricas = calcularMetricasExecutivas(relatorios);
 
@@ -37,439 +156,403 @@ export async function exportarRelatorioExecutivoPptx({
 
   const periodoTexto =
     filtros.de && filtros.ate
-      ? `De ${filtros.de.split("-").reverse().join("/")} até ${filtros.ate.split("-").reverse().join("/")}`
+      ? `${filtros.de.split("-").reverse().join("/")} – ${filtros.ate.split("-").reverse().join("/")}`
       : filtros.de
         ? `A partir de ${filtros.de.split("-").reverse().join("/")}`
         : filtros.ate
           ? `Até ${filtros.ate.split("-").reverse().join("/")}`
           : "Todo o histórico apurado";
 
-  const AZUL_PRIMARIO = "1E3A8A"; // #1e3a8a
-  const AZUL_DESTAQUE = "3B82F6"; // #3b82f6
-  const CINZA_FUNDO = "F8FAFC";   // #f8fafc
-  const TEXTO_ESCURO = "0F172A";  // #0f172a
-  const TEXTO_MUTED = "64748B";   // #64748b
-  const VERDE = "16A34A";         // #16a34a
-  const AMARELO = "D97706";       // #d97706
+  // ─── SLIDE 1: Capa ─────────────────────────────────────────────────────────
+  {
+    const slide = pptx.addSlide();
+    slide.background = { color: COR.CAPA_FUNDO };
 
-  // -------------------------------------------------------------
-  // SLIDE 1: Capa Executiva
-  // -------------------------------------------------------------
-  const slide1 = pptx.addSlide();
-  slide1.background = { color: "0F172A" }; // Fundo Dark Slate Corporativo
-
-  // Faixa superior decorativa
-  slide1.addShape(pptx.ShapeType.rect, {
-    x: 0,
-    y: 0,
-    w: "100%",
-    h: 0.25,
-    fill: { color: AZUL_DESTAQUE },
-    line: { color: AZUL_DESTAQUE },
-  });
-
-  // Badge TH
-  slide1.addShape(pptx.ShapeType.roundRect, {
-    x: 1.0,
-    y: 1.8,
-    w: 0.9,
-    h: 0.9,
-    rectRadius: 0.2,
-    fill: { color: AZUL_DESTAQUE },
-    line: { color: AZUL_DESTAQUE },
-  });
-  slide1.addText("TH", {
-    x: 1.0,
-    y: 1.8,
-    w: 0.9,
-    h: 0.9,
-    align: "center",
-    valign: "middle",
-    color: "FFFFFF",
-    fontSize: 24,
-    bold: true,
-  });
-
-  slide1.addText("THICKETHUB · GOVERNANÇA DE TI & SLA", {
-    x: 2.1,
-    y: 2.0,
-    w: 8.0,
-    h: 0.5,
-    fontSize: 14,
-    color: "93C5FD",
-    bold: true,
-  });
-
-  slide1.addText("Relatório Gerencial Executivo", {
-    x: 1.0,
-    y: 3.0,
-    w: 11.0,
-    h: 1.0,
-    fontSize: 34,
-    color: "FFFFFF",
-    bold: true,
-  });
-
-  slide1.addText("Acompanhamento Operacional, Cumprimento de Metas e Indicadores de Qualidade", {
-    x: 1.0,
-    y: 4.1,
-    w: 11.0,
-    h: 0.6,
-    fontSize: 15,
-    color: "CBD5E1",
-  });
-
-  // Box inferior com metadados do período
-  slide1.addShape(pptx.ShapeType.roundRect, {
-    x: 1.0,
-    y: 5.4,
-    w: 11.3,
-    h: 1.3,
-    rectRadius: 0.1,
-    fill: { color: "1E293B" },
-    line: { color: "334155" },
-  });
-
-  slide1.addText(
-    [
-      { text: "Período Apurado: ", options: { bold: true, color: "94A3B8" } },
-      { text: `${periodoTexto}\n`, options: { bold: true, color: "FFFFFF" } },
-      { text: "Data de Emissão: ", options: { bold: true, color: "94A3B8" } },
-      { text: `${agora}  |  `, options: { color: "E2E8F0" } },
-      { text: "Emitido por: ", options: { bold: true, color: "94A3B8" } },
-      { text: `${usuarioLogado?.nome || "Administrador do Sistema"}`, options: { color: "E2E8F0" } },
-    ],
-    {
-      x: 1.3,
-      y: 5.5,
-      w: 10.7,
-      h: 1.1,
-      fontSize: 12,
-      valign: "middle",
-    },
-  );
-
-  // -------------------------------------------------------------
-  // SLIDE 2: Painel de Indicadores (KPIs)
-  // -------------------------------------------------------------
-  const slide2 = pptx.addSlide();
-  slide2.background = { color: "FFFFFF" };
-
-  // Cabeçalho do Slide
-  slide2.addText("1. Painel Geral de Indicadores de Desempenho", {
-    x: 0.8,
-    y: 0.5,
-    w: 11.0,
-    h: 0.6,
-    fontSize: 20,
-    bold: true,
-    color: AZUL_PRIMARIO,
-  });
-  slide2.addText(`Visão executiva consolidada · ${periodoTexto}`, {
-    x: 0.8,
-    y: 1.1,
-    w: 11.0,
-    h: 0.4,
-    fontSize: 11,
-    color: TEXTO_MUTED,
-  });
-
-  // 6 Cards de KPIs organizados em grid (2 linhas de 3 cards)
-  const cardsKpi = [
-    {
-      titulo: "TOTAL DE CHAMADOS",
-      valor: String(metricas.totalChamados),
-      sub: "Demandas apuradas",
-      corValor: TEXTO_ESCURO,
-    },
-    {
-      titulo: "CHAMADOS RESOLVIDOS",
-      valor: String(metricas.totalResolvidos),
-      sub: `${metricas.taxaResolucaoPercentual}% taxa de resolução`,
-      corValor: VERDE,
-    },
-    {
-      titulo: "ADERÊNCIA AO SLA",
-      valor: `${metricas.cumprimentoSlaPercentual}%`,
-      sub: "Dentro do prazo limite",
-      corValor: metricas.cumprimentoSlaPercentual >= 90 ? VERDE : AMARELO,
-    },
-    {
-      titulo: "TEMPO 1º ATENDIMENTO",
-      valor: metricas.tempoMedioAtendimentoFormatado,
-      sub: "Média de início da resposta",
-      corValor: TEXTO_ESCURO,
-    },
-    {
-      titulo: "TEMPO DE RESOLUÇÃO",
-      valor: metricas.tempoMedioResolucaoFormatado,
-      sub: "Média de fechamento",
-      corValor: TEXTO_ESCURO,
-    },
-    {
-      titulo: "SATISFAÇÃO (CSAT)",
-      valor: `${metricas.satisfacaoMedia.toFixed(1)} ★`,
-      sub: `${metricas.percentualSatisfeitos}% clientes satisfeitos`,
-      corValor: AMARELO,
-    },
-  ];
-
-  cardsKpi.forEach((kpi, index) => {
-    const col = index % 3;
-    const row = Math.floor(index / 3);
-
-    const x = 0.8 + col * 3.9;
-    const y = 1.8 + row * 2.3;
-    const w = 3.6;
-    const h = 2.0;
-
-    // Card background
-    slide2.addShape(pptx.ShapeType.roundRect, {
-      x,
-      y,
-      w,
-      h,
-      rectRadius: 0.1,
-      fill: { color: CINZA_FUNDO },
-      line: { color: "E2E8F0", width: 1 },
+    // Faixa lateral esquerda de destaque
+    slide.addShape(pptx.ShapeType.rect, {
+      x: 0, y: 0, w: 0.22, h: "100%",
+      fill: { color: COR.AZUL_MEDIO },
+      line: { color: COR.AZUL_MEDIO },
     });
 
-    // Título do KPI
-    slide2.addText(kpi.titulo, {
-      x: x + 0.2,
-      y: y + 0.2,
-      w: w - 0.4,
-      h: 0.3,
-      fontSize: 9,
-      bold: true,
-      color: TEXTO_MUTED,
+    // Linha horizontal superior decorativa
+    slide.addShape(pptx.ShapeType.rect, {
+      x: 0.22, y: 0.65, w: 12.55, h: 0.04,
+      fill: { color: COR.AZUL_MEDIO },
+      line: { color: COR.AZUL_MEDIO },
     });
 
-    // Valor principal
-    slide2.addText(kpi.valor, {
-      x: x + 0.2,
-      y: y + 0.55,
-      w: w - 0.4,
-      h: 0.8,
-      fontSize: 26,
-      bold: true,
-      color: kpi.corValor,
+    // Badge TH
+    slide.addShape(pptx.ShapeType.roundRect, {
+      x: 0.65, y: 1.0, w: 1.1, h: 1.1,
+      rectRadius: 0.12,
+      fill: { color: COR.AZUL_MEDIO },
+      line: { color: COR.AZUL_MEDIO },
+    });
+    slide.addText("TH", {
+      x: 0.65, y: 1.0, w: 1.1, h: 1.1,
+      align: "center", valign: "middle",
+      fontSize: 30, bold: true, color: COR.BRANCO, fontFace: "Calibri",
     });
 
-    // Subtítulo
-    slide2.addText(kpi.sub, {
-      x: x + 0.2,
-      y: y + 1.45,
-      w: w - 0.4,
-      h: 0.35,
-      fontSize: 10,
-      color: TEXTO_MUTED,
+    // Nome da empresa
+    slide.addText("THICKETHUB", {
+      x: 1.9, y: 1.02, w: 10.5, h: 0.45,
+      fontSize: 13, bold: true, color: "93C5FD", fontFace: "Calibri",
+      charSpacing: 4,
     });
-  });
+    slide.addText("Central de Chamados e Governança de TI", {
+      x: 1.9, y: 1.46, w: 10.5, h: 0.38,
+      fontSize: 10, color: "64748B", fontFace: "Calibri",
+    });
 
-  // -------------------------------------------------------------
-  // SLIDE 3: Atendimentos por Setor
-  // -------------------------------------------------------------
-  const slide3 = pptx.addSlide();
-  slide3.background = { color: "FFFFFF" };
+    // Título principal
+    slide.addText("Relatório Gerencial", {
+      x: 0.65, y: 2.15, w: 11.5, h: 0.75,
+      fontSize: 38, bold: true, color: COR.BRANCO, fontFace: "Calibri",
+    });
+    slide.addText("Executivo", {
+      x: 0.65, y: 2.88, w: 11.5, h: 0.75,
+      fontSize: 38, bold: true, color: COR.AZUL_MEDIO, fontFace: "Calibri",
+    });
+    slide.addText("Acompanhamento Operacional, Cumprimento de Metas e Indicadores de Qualidade", {
+      x: 0.65, y: 3.68, w: 11.5, h: 0.45,
+      fontSize: 12, color: "94A3B8", fontFace: "Calibri",
+    });
 
-  slide3.addText("2. Distribuição e Resolução por Setor", {
-    x: 0.8,
-    y: 0.5,
-    w: 11.0,
-    h: 0.6,
-    fontSize: 20,
-    bold: true,
-    color: AZUL_PRIMARIO,
-  });
-  slide3.addText("Volume de chamados abertos, taxa de conclusão e atrasos operacionais", {
-    x: 0.8,
-    y: 1.1,
-    w: 11.0,
-    h: 0.4,
-    fontSize: 11,
-    color: TEXTO_MUTED,
-  });
+    // Linha divisória antes dos metadados
+    slide.addShape("line" as pptxgen.ShapeType, {
+      x: 0.65, y: 4.35, w: 11.5, h: 0,
+      line: { color: "334155", width: 1 },
+    });
 
-  const cabecalhoSetor = [
-    [
-      { text: "Setor", options: { bold: true, fill: { color: "1E3A8A" }, color: "FFFFFF", align: "left" } },
-      { text: "Chamados", options: { bold: true, fill: { color: "1E3A8A" }, color: "FFFFFF", align: "right" } },
-      { text: "Resolvidos", options: { bold: true, fill: { color: "1E3A8A" }, color: "FFFFFF", align: "right" } },
-      { text: "Atrasados", options: { bold: true, fill: { color: "1E3A8A" }, color: "FFFFFF", align: "right" } },
-      { text: "% Resolução", options: { bold: true, fill: { color: "1E3A8A" }, color: "FFFFFF", align: "right" } },
-    ],
-  ];
+    // Box de metadados
+    slide.addShape(pptx.ShapeType.roundRect, {
+      x: 0.65, y: 4.55, w: 11.5, h: 1.5,
+      rectRadius: 0.08,
+      fill: { color: COR.CAPA_ACENTO },
+      line: { color: "334155", width: 0.75 },
+    });
 
-  const linhasSetor = (relatorios.porSetor || []).map((s, idx) => {
-    const pct = s.total > 0 ? Math.round((s.resolvidos / s.total) * 100) : 0;
-    const fundoLinha = idx % 2 === 0 ? "F8FAFC" : "FFFFFF";
-    return [
-      { text: s.chave, options: { fill: { color: fundoLinha }, color: TEXTO_ESCURO, bold: true, align: "left" } },
-      { text: String(s.total), options: { fill: { color: fundoLinha }, color: TEXTO_ESCURO, align: "right" } },
-      { text: String(s.resolvidos), options: { fill: { color: fundoLinha }, color: VERDE, bold: true, align: "right" } },
-      { text: String(s.atrasados), options: { fill: { color: fundoLinha }, color: s.atrasados > 0 ? "DC2626" : TEXTO_MUTED, align: "right" } },
-      { text: `${pct}%`, options: { fill: { color: fundoLinha }, color: TEXTO_ESCURO, bold: true, align: "right" } },
+    // Grid de 3 colunas de metadados
+    const metaItens = [
+      { rotulo: "PERÍODO APURADO", valor: periodoTexto },
+      { rotulo: "DATA DE EMISSÃO", valor: agora },
+      { rotulo: "EMITIDO POR", valor: usuarioLogado?.nome || "Administrador do Sistema" },
     ];
-  });
-
-  const tabelaSetor = [
-    ...cabecalhoSetor,
-    ...(linhasSetor.length > 0
-      ? linhasSetor
-      : [[
-          { text: "Nenhum chamado registrado para os setores no período.", options: { colspan: 5, align: "center", color: TEXTO_MUTED } },
-          { text: "" },
-          { text: "" },
-          { text: "" },
-          { text: "" },
-        ]]),
-  ];
-
-  // @ts-expect-error PptxGenJS tipagem de tabela aceita linhas de formato de célula
-  slide3.addTable(tabelaSetor, {
-    x: 0.8,
-    y: 1.8,
-    w: 11.7,
-    colW: [3.5, 2.0, 2.0, 2.0, 2.2],
-    border: { pt: 1, color: "E2E8F0" },
-    fontSize: 11,
-    rowH: 0.45,
-  });
-
-  // -------------------------------------------------------------
-  // SLIDE 4: SLA por Prioridade
-  // -------------------------------------------------------------
-  const slide4 = pptx.addSlide();
-  slide4.background = { color: "FFFFFF" };
-
-  slide4.addText("3. Níveis de Serviço (SLA) por Prioridade", {
-    x: 0.8,
-    y: 0.5,
-    w: 11.0,
-    h: 0.6,
-    fontSize: 20,
-    bold: true,
-    color: AZUL_PRIMARIO,
-  });
-  slide4.addText("Aderência contratual aos prazos limites de atendimento e resolução", {
-    x: 0.8,
-    y: 1.1,
-    w: 11.0,
-    h: 0.4,
-    fontSize: 11,
-    color: TEXTO_MUTED,
-  });
-
-  const cabecalhoPrioridade = [
-    [
-      { text: "Prioridade", options: { bold: true, fill: { color: "1E3A8A" }, color: "FFFFFF", align: "left" } },
-      { text: "Total Apurado", options: { bold: true, fill: { color: "1E3A8A" }, color: "FFFFFF", align: "right" } },
-      { text: "SLA Cumprido", options: { bold: true, fill: { color: "1E3A8A" }, color: "FFFFFF", align: "right" } },
-      { text: "SLA Violado", options: { bold: true, fill: { color: "1E3A8A" }, color: "FFFFFF", align: "right" } },
-      { text: "Aderência %", options: { bold: true, fill: { color: "1E3A8A" }, color: "FFFFFF", align: "right" } },
-    ],
-  ];
-
-  const linhasPrioridade = (relatorios.porPrioridade || []).map((p, idx) => {
-    const violados = Math.max(0, p.slaTotal - p.slaCumprido);
-    const pct = p.slaTotal > 0 ? Math.round((p.slaCumprido / p.slaTotal) * 100) : 100;
-    const nome = PRIORIDADE_LABEL[p.chave as PrioridadeChamado] || p.chave;
-    const fundoLinha = idx % 2 === 0 ? "F8FAFC" : "FFFFFF";
-
-    return [
-      { text: nome, options: { fill: { color: fundoLinha }, color: TEXTO_ESCURO, bold: true, align: "left" } },
-      { text: String(p.slaTotal), options: { fill: { color: fundoLinha }, color: TEXTO_ESCURO, align: "right" } },
-      { text: String(p.slaCumprido), options: { fill: { color: fundoLinha }, color: VERDE, bold: true, align: "right" } },
-      { text: String(violados), options: { fill: { color: fundoLinha }, color: violados > 0 ? "DC2626" : TEXTO_MUTED, align: "right" } },
-      { text: `${pct}%`, options: { fill: { color: fundoLinha }, color: pct >= 90 ? VERDE : AMARELO, bold: true, align: "right" } },
-    ];
-  });
-
-  const tabelaPrioridade = [
-    ...cabecalhoPrioridade,
-    ...(linhasPrioridade.length > 0
-      ? linhasPrioridade
-      : [[
-          { text: "Sem dados de SLA no período apurado.", options: { colspan: 5, align: "center", color: TEXTO_MUTED } },
-          { text: "" },
-          { text: "" },
-          { text: "" },
-          { text: "" },
-        ]]),
-  ];
-
-  // @ts-expect-error PptxGenJS tipagem de tabela
-  slide4.addTable(tabelaPrioridade, {
-    x: 0.8,
-    y: 1.8,
-    w: 11.7,
-    colW: [3.5, 2.0, 2.0, 2.0, 2.2],
-    border: { pt: 1, color: "E2E8F0" },
-    fontSize: 11,
-    rowH: 0.45,
-  });
-
-  // -------------------------------------------------------------
-  // SLIDE 5: Desempenho da Equipe Técnica (se houver dados)
-  // -------------------------------------------------------------
-  if (relatorios.tecnicos && relatorios.tecnicos.length > 0) {
-    const slide5 = pptx.addSlide();
-    slide5.background = { color: "FFFFFF" };
-
-    slide5.addText("4. Desempenho Individual da Equipe Técnica", {
-      x: 0.8,
-      y: 0.5,
-      w: 11.0,
-      h: 0.6,
-      fontSize: 20,
-      bold: true,
-      color: AZUL_PRIMARIO,
-    });
-    slide5.addText("Volume de atendimentos, chamados em aberto, tempo médio de resolução e SLA", {
-      x: 0.8,
-      y: 1.1,
-      w: 11.0,
-      h: 0.4,
-      fontSize: 11,
-      color: TEXTO_MUTED,
+    metaItens.forEach((meta, i) => {
+      const x = 0.85 + i * 3.85;
+      slide.addText(meta.rotulo, {
+        x, y: 4.65, w: 3.6, h: 0.28,
+        fontSize: 7.5, bold: true, color: "64748B", fontFace: "Calibri", charSpacing: 1.5,
+      });
+      slide.addText(meta.valor, {
+        x, y: 4.93, w: 3.6, h: 0.85,
+        fontSize: 11, bold: true, color: "E2E8F0", fontFace: "Calibri",
+        wrap: true,
+      });
     });
 
-    const cabecalhoTecnicos = [
-      [
-        { text: "Técnico", options: { bold: true, fill: { color: "1E3A8A" }, color: "FFFFFF", align: "left" } },
-        { text: "Atendidos", options: { bold: true, fill: { color: "1E3A8A" }, color: "FFFFFF", align: "right" } },
-        { text: "Em Aberto", options: { bold: true, fill: { color: "1E3A8A" }, color: "FFFFFF", align: "right" } },
-        { text: "Tempo Médio (h)", options: { bold: true, fill: { color: "1E3A8A" }, color: "FFFFFF", align: "right" } },
-        { text: "SLA Cumprido %", options: { bold: true, fill: { color: "1E3A8A" }, color: "FFFFFF", align: "right" } },
-      ],
-    ];
-
-    const linhasTecnicos = relatorios.tecnicos.map((t, idx) => {
-      const pct = t.slaTotal > 0 ? Math.round((t.slaCumprido / t.slaTotal) * 100) : 100;
-      const fundoLinha = idx % 2 === 0 ? "F8FAFC" : "FFFFFF";
-      return [
-        { text: t.chave, options: { fill: { color: fundoLinha }, color: TEXTO_ESCURO, bold: true, align: "left" } },
-        { text: String(t.atendidos), options: { fill: { color: fundoLinha }, color: TEXTO_ESCURO, bold: true, align: "right" } },
-        { text: String(t.emAberto), options: { fill: { color: fundoLinha }, color: TEXTO_MUTED, align: "right" } },
-        { text: `${t.tempoMedioResolucaoHoras.toFixed(1)}h`, options: { fill: { color: fundoLinha }, color: TEXTO_ESCURO, align: "right" } },
-        { text: `${pct}%`, options: { fill: { color: fundoLinha }, color: pct >= 90 ? VERDE : AMARELO, bold: true, align: "right" } },
-      ];
-    });
-
-    // @ts-expect-error PptxGenJS tipagem de tabela
-    slide5.addTable([...cabecalhoTecnicos, ...linhasTecnicos], {
-      x: 0.8,
-      y: 1.8,
-      w: 11.7,
-      colW: [3.5, 2.0, 2.0, 2.0, 2.2],
-      border: { pt: 1, color: "E2E8F0" },
-      fontSize: 11,
-      rowH: 0.45,
+    // Separadores verticais entre colunas
+    [4.7, 8.55].forEach((xSep) => {
+      slide.addShape("line" as pptxgen.ShapeType, {
+        x: xSep, y: 4.7, w: 0, h: 1.2,
+        line: { color: "334155", width: 0.75 },
+      });
     });
   }
 
-  // Nome do arquivo de saída
-  const nomeArquivo = `Relatorio-Executivo-ThicketHub-${new Date().toISOString().slice(0, 10)}.pptx`;
+  // ─── SLIDE 2: Painel de KPIs ───────────────────────────────────────────────
+  {
+    const slide = pptx.addSlide();
+    slide.background = { color: COR.BRANCO };
+    adicionarCabecalhoSecao(slide, "01", "Painel de Indicadores de Desempenho", "Visão executiva consolidada dos principais KPIs operacionais e de qualidade", agora);
+
+    const kpis = [
+      {
+        valor: String(metricas.totalChamados),
+        rotulo: "Total de Chamados",
+        sub: "Demandas apuradas no período",
+        cor: COR.AZUL_MEDIO,
+        bg: COR.AZUL_CLARO,
+        borda: COR.AZUL_BORDA,
+      },
+      {
+        valor: String(metricas.totalResolvidos),
+        rotulo: "Resolvidos",
+        sub: `${metricas.taxaResolucaoPercentual}% taxa de conclusão`,
+        cor: COR.VERDE,
+        bg: COR.VERDE_CLARO,
+        borda: COR.VERDE_BORDA,
+      },
+      {
+        valor: `${metricas.cumprimentoSlaPercentual}%`,
+        rotulo: "Aderência ao SLA",
+        sub: "Chamados dentro do prazo",
+        cor: metricas.cumprimentoSlaPercentual >= 90 ? COR.VERDE : COR.AMARELO,
+        bg: metricas.cumprimentoSlaPercentual >= 90 ? COR.VERDE_CLARO : COR.AMARELO_CLARO,
+        borda: metricas.cumprimentoSlaPercentual >= 90 ? COR.VERDE_BORDA : "FDE68A",
+      },
+      {
+        valor: metricas.tempoMedioAtendimentoFormatado,
+        rotulo: "Tempo 1º Atendimento",
+        sub: "Média de início de resposta",
+        cor: COR.AZUL_ESCURO,
+        bg: COR.CINZA_FUNDO,
+        borda: COR.CINZA_BORDA,
+      },
+      {
+        valor: metricas.tempoMedioResolucaoFormatado,
+        rotulo: "Tempo de Resolução",
+        sub: "Média até encerramento",
+        cor: COR.AZUL_ESCURO,
+        bg: COR.CINZA_FUNDO,
+        borda: COR.CINZA_BORDA,
+      },
+      {
+        valor: `${metricas.satisfacaoMedia.toFixed(1)} ★`,
+        rotulo: "Satisfação (CSAT)",
+        sub: `${metricas.percentualSatisfeitos}% de clientes satisfeitos`,
+        cor: COR.AMARELO,
+        bg: COR.AMARELO_CLARO,
+        borda: "FDE68A",
+      },
+    ];
+
+    // 2 linhas × 3 colunas
+    kpis.forEach((kpi, idx) => {
+      const col = idx % 3;
+      const row = Math.floor(idx / 3);
+      const x = 0.4 + col * 4.27;
+      const y = 1.25 + row * 2.65;
+      const w = 4.0;
+      const h = 2.35;
+
+      // Fundo e borda do card
+      slide.addShape(pptx.ShapeType.roundRect, {
+        x, y, w, h,
+        rectRadius: 0.1,
+        fill: { color: kpi.bg },
+        line: { color: kpi.borda, width: 1 },
+      });
+
+      // Barra de cor superior do card
+      slide.addShape(pptx.ShapeType.roundRect, {
+        x, y, w, h: 0.22,
+        rectRadius: 0.1,
+        fill: { color: kpi.cor },
+        line: { color: kpi.cor },
+      });
+
+      // Rótulo
+      slide.addText(kpi.rotulo.toUpperCase(), {
+        x: x + 0.18, y: y + 0.32, w: w - 0.36, h: 0.3,
+        fontSize: 8, bold: true, color: COR.TEXTO_MUTED, fontFace: "Calibri",
+        charSpacing: 0.8,
+      });
+
+      // Valor em destaque
+      const valorFontSize = kpi.valor.length > 6 ? 26 : 34;
+      slide.addText(kpi.valor, {
+        x: x + 0.18, y: y + 0.6, w: w - 0.36, h: 0.98,
+        fontSize: valorFontSize, bold: true, color: kpi.cor, fontFace: "Calibri",
+        valign: "middle",
+      });
+
+      // Divisória inferior
+      slide.addShape("line" as pptxgen.ShapeType, {
+        x: x + 0.18, y: y + 1.65, w: w - 0.36, h: 0,
+        line: { color: kpi.borda, width: 0.5 },
+      });
+
+      // Subtítulo
+      slide.addText(kpi.sub, {
+        x: x + 0.18, y: y + 1.72, w: w - 0.36, h: 0.5,
+        fontSize: 9.5, color: COR.TEXTO_MUTED, fontFace: "Calibri", wrap: true,
+      });
+    });
+  }
+
+  // ─── SLIDE 3: Atendimentos por Setor ──────────────────────────────────────
+  {
+    const slide = pptx.addSlide();
+    slide.background = { color: COR.BRANCO };
+    adicionarCabecalhoSecao(slide, "02", "Distribuição e Resolução por Setor", "Volume de demandas abertas, taxa de resolução e atrasos operacionais por departamento", agora);
+
+    const linhas: pptxgen.TableRow[] = [
+      // Cabeçalho
+      [
+        { text: "Setor / Departamento", options: { bold: true, color: COR.BRANCO, fill: { color: COR.AZUL_ESCURO }, align: "left" } },
+        { text: "Chamados", options: { bold: true, color: COR.BRANCO, fill: { color: COR.AZUL_ESCURO }, align: "center" } },
+        { text: "Resolvidos", options: { bold: true, color: COR.BRANCO, fill: { color: COR.AZUL_ESCURO }, align: "center" } },
+        { text: "Atrasados", options: { bold: true, color: COR.BRANCO, fill: { color: COR.AZUL_ESCURO }, align: "center" } },
+        { text: "% Resolução", options: { bold: true, color: COR.BRANCO, fill: { color: COR.AZUL_ESCURO }, align: "center" } },
+        { text: "Status", options: { bold: true, color: COR.BRANCO, fill: { color: COR.AZUL_ESCURO }, align: "center" } },
+      ],
+    ];
+
+    if (relatorios.porSetor && relatorios.porSetor.length > 0) {
+      relatorios.porSetor.forEach((s, idx) => {
+        const pct = s.total > 0 ? Math.round((s.resolvidos / s.total) * 100) : 0;
+        const bgLinha = idx % 2 === 0 ? COR.CINZA_FUNDO : COR.BRANCO;
+        const statusTexto = pct >= 80 ? "✓ Bom" : pct >= 50 ? "⚠ Regular" : "✗ Crítico";
+        const statusCor = pct >= 80 ? COR.VERDE : pct >= 50 ? COR.AMARELO : COR.VERMELHO;
+        linhas.push([
+          { text: s.chave, options: { bold: true, color: COR.TEXTO_ESCURO, fill: { color: bgLinha }, align: "left" } },
+          { text: String(s.total), options: { color: COR.TEXTO_ESCURO, fill: { color: bgLinha }, align: "center" } },
+          { text: String(s.resolvidos), options: { bold: true, color: COR.VERDE, fill: { color: bgLinha }, align: "center" } },
+          { text: String(s.atrasados), options: { bold: s.atrasados > 0, color: s.atrasados > 0 ? COR.VERMELHO : COR.TEXTO_MUTED, fill: { color: bgLinha }, align: "center" } },
+          { text: `${pct}%`, options: { bold: true, color: COR.TEXTO_ESCURO, fill: { color: bgLinha }, align: "center" } },
+          { text: statusTexto, options: { bold: true, color: statusCor, fill: { color: bgLinha }, align: "center" } },
+        ]);
+      });
+    } else {
+      linhas.push([
+        { text: "Nenhum dado de setor disponível no período selecionado.", options: { color: COR.TEXTO_MUTED, align: "left", colspan: 6 } },
+        { text: "" }, { text: "" }, { text: "" }, { text: "" }, { text: "" },
+      ]);
+    }
+
+    slide.addTable(linhas as pptxgen.TableRow[], {
+      x: 0.4, y: 1.25, w: 12.5,
+      colW: [3.2, 1.6, 1.6, 1.6, 1.6, 2.9],
+      border: { pt: 0.5, color: COR.CINZA_BORDA },
+      fontSize: 11,
+      fontFace: "Calibri",
+      rowH: 0.48,
+      margin: [0, 10, 0, 10],
+    });
+  }
+
+  // ─── SLIDE 4: SLA por Prioridade ──────────────────────────────────────────
+  {
+    const slide = pptx.addSlide();
+    slide.background = { color: COR.BRANCO };
+    adicionarCabecalhoSecao(slide, "03", "Níveis de Serviço (SLA) por Prioridade", "Aderência contratual aos prazos limites de atendimento e resolução por criticidade", agora);
+
+    const linhasSla: pptxgen.TableRow[] = [
+      [
+        { text: "Prioridade", options: { bold: true, color: COR.BRANCO, fill: { color: COR.AZUL_ESCURO }, align: "left" } },
+        { text: "Total Apurado", options: { bold: true, color: COR.BRANCO, fill: { color: COR.AZUL_ESCURO }, align: "center" } },
+        { text: "SLA Cumprido", options: { bold: true, color: COR.BRANCO, fill: { color: COR.AZUL_ESCURO }, align: "center" } },
+        { text: "SLA Violado", options: { bold: true, color: COR.BRANCO, fill: { color: COR.AZUL_ESCURO }, align: "center" } },
+        { text: "Aderência %", options: { bold: true, color: COR.BRANCO, fill: { color: COR.AZUL_ESCURO }, align: "center" } },
+        { text: "Conformidade", options: { bold: true, color: COR.BRANCO, fill: { color: COR.AZUL_ESCURO }, align: "center" } },
+      ],
+    ];
+
+    if (relatorios.porPrioridade && relatorios.porPrioridade.length > 0) {
+      relatorios.porPrioridade.forEach((p, idx) => {
+        const violados = Math.max(0, p.slaTotal - p.slaCumprido);
+        const pct = p.slaTotal > 0 ? Math.round((p.slaCumprido / p.slaTotal) * 100) : 100;
+        const bgLinha = idx % 2 === 0 ? COR.CINZA_FUNDO : COR.BRANCO;
+        const nome = PRIORIDADE_LABEL[p.chave as PrioridadeChamado] || p.chave;
+        const confTexto = pct >= 90 ? "✓ Dentro do alvo" : pct >= 70 ? "⚠ Atenção" : "✗ Crítico";
+        const confCor = pct >= 90 ? COR.VERDE : pct >= 70 ? COR.AMARELO : COR.VERMELHO;
+        linhasSla.push([
+          { text: nome, options: { bold: true, color: COR.TEXTO_ESCURO, fill: { color: bgLinha }, align: "left" } },
+          { text: String(p.slaTotal), options: { color: COR.TEXTO_ESCURO, fill: { color: bgLinha }, align: "center" } },
+          { text: String(p.slaCumprido), options: { bold: true, color: COR.VERDE, fill: { color: bgLinha }, align: "center" } },
+          { text: String(violados), options: { bold: violados > 0, color: violados > 0 ? COR.VERMELHO : COR.TEXTO_MUTED, fill: { color: bgLinha }, align: "center" } },
+          { text: `${pct}%`, options: { bold: true, color: pct >= 90 ? COR.VERDE : COR.AMARELO, fill: { color: bgLinha }, align: "center" } },
+          { text: confTexto, options: { bold: true, color: confCor, fill: { color: bgLinha }, align: "center" } },
+        ]);
+      });
+    } else {
+      linhasSla.push([
+        { text: "Nenhum dado de SLA disponível no período selecionado.", options: { color: COR.TEXTO_MUTED, align: "left", colspan: 6 } },
+        { text: "" }, { text: "" }, { text: "" }, { text: "" }, { text: "" },
+      ]);
+    }
+
+    slide.addTable(linhasSla as pptxgen.TableRow[], {
+      x: 0.4, y: 1.25, w: 12.5,
+      colW: [3.2, 1.8, 1.8, 1.8, 1.8, 2.1],
+      border: { pt: 0.5, color: COR.CINZA_BORDA },
+      fontSize: 11,
+      fontFace: "Calibri",
+      rowH: 0.48,
+      margin: [0, 10, 0, 10],
+    });
+  }
+
+  // ─── SLIDE 5: Equipe Técnica (condicional) ────────────────────────────────
+  if (relatorios.tecnicos && relatorios.tecnicos.length > 0) {
+    const slide = pptx.addSlide();
+    slide.background = { color: COR.BRANCO };
+    adicionarCabecalhoSecao(slide, "04", "Desempenho da Equipe Técnica", "Ranking individual de produtividade, chamados atendidos e conformidade com o SLA", agora);
+
+    const linhasTec: pptxgen.TableRow[] = [
+      [
+        { text: "Técnico", options: { bold: true, color: COR.BRANCO, fill: { color: COR.AZUL_ESCURO }, align: "left" } },
+        { text: "Atendidos", options: { bold: true, color: COR.BRANCO, fill: { color: COR.AZUL_ESCURO }, align: "center" } },
+        { text: "Em Aberto", options: { bold: true, color: COR.BRANCO, fill: { color: COR.AZUL_ESCURO }, align: "center" } },
+        { text: "Tempo Médio", options: { bold: true, color: COR.BRANCO, fill: { color: COR.AZUL_ESCURO }, align: "center" } },
+        { text: "SLA Cumprido", options: { bold: true, color: COR.BRANCO, fill: { color: COR.AZUL_ESCURO }, align: "center" } },
+        { text: "Aderência %", options: { bold: true, color: COR.BRANCO, fill: { color: COR.AZUL_ESCURO }, align: "center" } },
+      ],
+    ];
+
+    relatorios.tecnicos
+      .sort((a, b) => b.atendidos - a.atendidos)
+      .forEach((t, idx) => {
+        const pct = t.slaTotal > 0 ? Math.round((t.slaCumprido / t.slaTotal) * 100) : 100;
+        const bgLinha = idx % 2 === 0 ? COR.CINZA_FUNDO : COR.BRANCO;
+        linhasTec.push([
+          { text: t.chave, options: { bold: true, color: COR.TEXTO_ESCURO, fill: { color: bgLinha }, align: "left" } },
+          { text: String(t.atendidos), options: { bold: true, color: COR.AZUL_MEDIO, fill: { color: bgLinha }, align: "center" } },
+          { text: String(t.emAberto), options: { color: t.emAberto > 0 ? COR.AMARELO : COR.TEXTO_MUTED, fill: { color: bgLinha }, align: "center" } },
+          { text: `${t.tempoMedioResolucaoHoras.toFixed(1)}h`, options: { color: COR.TEXTO_ESCURO, fill: { color: bgLinha }, align: "center" } },
+          { text: String(t.slaCumprido), options: { bold: true, color: COR.VERDE, fill: { color: bgLinha }, align: "center" } },
+          { text: `${pct}%`, options: { bold: true, color: pct >= 90 ? COR.VERDE : COR.AMARELO, fill: { color: bgLinha }, align: "center" } },
+        ]);
+      });
+
+    slide.addTable(linhasTec as pptxgen.TableRow[], {
+      x: 0.4, y: 1.25, w: 12.5,
+      colW: [3.5, 1.6, 1.6, 1.6, 1.9, 2.3],
+      border: { pt: 0.5, color: COR.CINZA_BORDA },
+      fontSize: 11,
+      fontFace: "Calibri",
+      rowH: 0.48,
+      margin: [0, 10, 0, 10],
+    });
+  }
+
+  // ─── SLIDE FINAL: Encerramento ────────────────────────────────────────────
+  {
+    const slide = pptx.addSlide();
+    slide.background = { color: COR.CAPA_FUNDO };
+
+    slide.addShape(pptx.ShapeType.rect, {
+      x: 0, y: 0, w: 0.22, h: "100%",
+      fill: { color: COR.AZUL_MEDIO },
+      line: { color: COR.AZUL_MEDIO },
+    });
+
+    slide.addText("Documento gerado automaticamente pelo sistema", {
+      x: 0.65, y: 2.5, w: 12.0, h: 0.45,
+      fontSize: 18, bold: true, color: "94A3B8", fontFace: "Calibri",
+    });
+    slide.addText("ThicketHub · Central de Chamados e Governança de TI", {
+      x: 0.65, y: 3.1, w: 12.0, h: 0.55,
+      fontSize: 24, bold: true, color: COR.BRANCO, fontFace: "Calibri",
+    });
+    slide.addShape("line" as pptxgen.ShapeType, {
+      x: 0.65, y: 3.8, w: 5.0, h: 0,
+      line: { color: COR.AZUL_MEDIO, width: 2 },
+    });
+    slide.addText(
+      [
+        { text: "Período: ", options: { bold: true, color: "64748B" } },
+        { text: `${periodoTexto}\n`, options: { color: "E2E8F0" } },
+        { text: "Emissão: ", options: { bold: true, color: "64748B" } },
+        { text: agora, options: { color: "E2E8F0" } },
+      ],
+      { x: 0.65, y: 4.05, w: 12.0, h: 0.8, fontSize: 11, fontFace: "Calibri" },
+    );
+  }
+
+  const nomeArquivo = `ThicketHub-Relatorio-Executivo-${new Date().toISOString().slice(0, 10)}.pptx`;
   await pptx.writeFile({ fileName: nomeArquivo });
 }

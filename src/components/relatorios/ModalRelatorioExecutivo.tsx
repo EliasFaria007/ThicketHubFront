@@ -67,9 +67,29 @@ export function ModalRelatorioExecutivo({
       return;
     }
 
-    // Coleta todos os estilos da aplicação (Tailwind, fontes, ícones) para fidelidade 1:1 exata
-    const estilos = Array.from(document.querySelectorAll("link[rel='stylesheet'], style"))
-      .map((item) => item.outerHTML)
+    // Converte URLs relativas de stylesheets para absolutas (necessário no contexto blob:)
+    const estilosTags = Array.from(document.querySelectorAll("link[rel='stylesheet'], style"))
+      .map((item) => {
+        if (item.tagName === "LINK") {
+          const link = item as HTMLLinkElement;
+          const href = new URL(link.href, window.location.origin).href;
+          return `<link rel="stylesheet" crossorigin="anonymous" href="${href}" />`;
+        }
+        return item.outerHTML;
+      })
+      .join("\n");
+
+    // Extrai as variáveis CSS do :root para garantir que o tema claro seja aplicado
+    const rootStyles = Array.from(document.styleSheets)
+      .flatMap((sheet) => {
+        try {
+          return Array.from(sheet.cssRules || []);
+        } catch {
+          return [];
+        }
+      })
+      .filter((r) => r instanceof CSSStyleRule && (r as CSSStyleRule).selectorText?.includes(":root"))
+      .map((r) => (r as CSSStyleRule).cssText)
       .join("\n");
 
     const html = `<!DOCTYPE html>
@@ -77,12 +97,10 @@ export function ModalRelatorioExecutivo({
 <head>
   <meta charset="utf-8" />
   <title>Relatório Executivo — ThicketHub</title>
-  ${estilos}
+  ${estilosTags}
   <style>
-    @page {
-      size: A4;
-      margin: 12mm 10mm;
-    }
+    ${rootStyles}
+    @page { size: A4; margin: 12mm 10mm; }
     html, body {
       background-color: #ffffff !important;
       color: #0f172a !important;
@@ -90,7 +108,6 @@ export function ModalRelatorioExecutivo({
       print-color-adjust: exact !important;
       margin: 0 !important;
       padding: 0 !important;
-      font-family: inherit;
     }
     article {
       max-width: 100% !important;
@@ -100,12 +117,11 @@ export function ModalRelatorioExecutivo({
       margin: 0 !important;
       background-color: #ffffff !important;
     }
-    table {
-      break-inside: avoid !important;
-    }
+    table { break-inside: avoid !important; }
+    .overflow-y-auto { overflow: visible !important; height: auto !important; }
   </style>
 </head>
-<body class="bg-white text-foreground p-0 m-0">
+<body class="light bg-white p-0 m-0">
   <div style="max-width: 900px; margin: 0 auto; padding: 0;">
     ${el.outerHTML}
   </div>
@@ -114,17 +130,19 @@ export function ModalRelatorioExecutivo({
 
     const blob = new Blob([html], { type: "text/html; charset=utf-8" });
     const url = URL.createObjectURL(blob);
-    const win = window.open(url, "_blank", "width=920,height=740,menubar=no,toolbar=no");
+    const win = window.open(url, "_blank", "width=920,height=760,menubar=no,toolbar=no");
     if (!win) {
       toast.error("Permita pop-ups neste site para imprimir o Relatório Executivo.");
       URL.revokeObjectURL(url);
       return;
     }
     win.addEventListener("load", () => {
-      setTimeout(() => {
-        win.print();
-        URL.revokeObjectURL(url);
-      }, 350);
+      void win.document.fonts.ready.then(() => {
+        setTimeout(() => {
+          win.print();
+          URL.revokeObjectURL(url);
+        }, 300);
+      });
     });
   }
 
