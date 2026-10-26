@@ -9,11 +9,12 @@ import {
   Timer,
   XCircle,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { PRIORIDADE_LABEL, STATUS_LABEL } from "@/lib/dominio";
-import { horasLegivel, resumoSla } from "@/lib/sla";
+import { horasLegivel, resumoSla, type ChamadoSlaLike } from "@/lib/sla";
 import { cn } from "@/lib/utils";
-import type { Chamado, PrioridadeChamado, StatusChamado } from "@/types";
+import type { PrioridadeChamado, StatusChamado } from "@/types";
 
 const STATUS_ESTILO: Record<StatusChamado, string> = {
   aberto: "bg-secondary/12 text-secondary border-secondary/25",
@@ -89,11 +90,19 @@ export function PrioridadeBadge({
   );
 }
 
-type ChamadoSla = Pick<Chamado, "slaConsumidoMs" | "slaRodandoDesde" | "slaResolucaoHoras" | "status">;
+export type ChamadoSla = ChamadoSlaLike;
 
 /** Situação do SLA considerando a regra de pausa (aguardando/pausado não consomem prazo). */
 export function SlaBadge({ chamado, className }: { chamado: ChamadoSla; className?: string }) {
-  const sla = resumoSla(chamado);
+  const [agora, setAgora] = useState(() => Date.now());
+
+  // Atualiza a cada 30 segundos para contagem viva em tempo real
+  useEffect(() => {
+    const timer = setInterval(() => setAgora(Date.now()), 30_000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const sla = resumoSla(chamado, agora);
 
   if (sla.situacao === "encerrado") {
     return (
@@ -110,24 +119,37 @@ export function SlaBadge({ chamado, className }: { chamado: ChamadoSla; classNam
 
   const estilo =
     sla.situacao === "atrasado"
-      ? "bg-destructive-soft text-destructive border-destructive/35"
+      ? "bg-destructive-soft text-destructive border-destructive/35 font-medium"
       : sla.situacao === "atencao"
-        ? "bg-warning-soft text-warning border-warning/30"
-        : "bg-success-soft text-success border-success/30";
+        ? "bg-warning-soft text-warning border-warning/30 font-medium"
+        : "bg-success-soft text-success border-success/30 font-medium";
 
-  const texto =
-    sla.situacao === "atrasado"
-      ? "SLA atrasado"
-      : `SLA ${sla.percentual}% · restam ${horasLegivel(sla.restanteHoras)}`;
+  let texto: string;
+  if (sla.situacao === "atrasado") {
+    texto = `SLA atrasado · +${horasLegivel(sla.atrasoHoras)}`;
+  } else {
+    texto = `SLA ${sla.percentual}% · restam ${horasLegivel(sla.restanteHoras)}`;
+  }
+
+  const tooltipInfo = [
+    `Prazo de resolução: ${horasLegivel(sla.limiteHoras)}`,
+    `Consumido: ${horasLegivel(sla.consumidoHoras)} (${sla.percentual}%)`,
+    sla.prazoLimiteDate
+      ? `Limite: ${sla.prazoLimiteDate.toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}`
+      : null,
+    sla.pausado ? "Cronômetro pausado" : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
 
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs font-semibold",
+        "inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs font-semibold tabular-nums",
         estilo,
         className,
       )}
-      title={`Limite de resolução: ${horasLegivel(sla.limiteHoras)}${sla.pausado ? " · cronômetro pausado" : ""}`}
+      title={tooltipInfo}
     >
       {sla.pausado ? <PauseCircle aria-hidden className="size-3.5" /> : <Timer aria-hidden className="size-3.5" />}
       {texto}

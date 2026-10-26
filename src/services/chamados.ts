@@ -89,6 +89,11 @@ function adaptarChamado(c: any): Chamado {
     oQueFoiFeito: oQueFoiFeito ?? (c.oQueFoiFeito ? String(c.oQueFoiFeito) : null),
     anexos,
     criadoEm: c.criadoEm ?? c.dataAbertura ?? new Date().toISOString(),
+    prazoLimite: c.prazoLimite ?? null,
+    slaAtendimentoHoras: c.slaAtendimentoHoras ?? null,
+    slaResolucaoHoras: c.slaResolucaoHoras ?? null,
+    slaConsumidoMs: c.slaConsumidoMs ?? 0,
+    slaRodandoDesde: c.slaRodandoDesde ?? null,
     servicoId: String(c.servicoId ?? ""),
     solicitante: c.solicitante ?? {
       id: String(c.solicitanteId ?? ""),
@@ -134,6 +139,11 @@ export async function listarChamados(filtros: FiltrosChamados): Promise<Paginaca
     ...item,
     id: String(item.id),
     criadoEm: item.criadoEm ?? item.dataAbertura ?? new Date().toISOString(),
+    prazoLimite: item.prazoLimite ?? null,
+    slaAtendimentoHoras: item.slaAtendimentoHoras ?? null,
+    slaResolucaoHoras: item.slaResolucaoHoras ?? null,
+    slaConsumidoMs: item.slaConsumidoMs ?? 0,
+    slaRodandoDesde: item.slaRodandoDesde ?? null,
     solicitante: item.solicitante ?? {
       id: String(item.solicitanteId ?? ""),
       nome: item.solicitanteNome ?? "Solicitante",
