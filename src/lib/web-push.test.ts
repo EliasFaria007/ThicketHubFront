@@ -29,7 +29,7 @@ describe("web-push", () => {
     mockLocalStorage.clear();
     // @ts-expect-error mock window e localStorage
     globalThis.window = {
-      location: { href: "" },
+      location: { href: "", origin: "http://localhost:3000" },
       focus: vi.fn(),
     };
     // @ts-expect-error mock localStorage

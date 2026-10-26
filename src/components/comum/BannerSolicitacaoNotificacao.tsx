@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Bell, Check, X } from "lucide-react";
 import { toast } from "sonner";
 
@@ -6,17 +6,20 @@ import { Button } from "@/components/ui/button";
 import {
   conviteFoiDispensado,
   dispensarConviteNotificacao,
+  dispararNotificacaoNativa,
   obterStatusPermissao,
   solicitarPermissaoNotificacoes,
   suportaNotificacoesWeb,
 } from "@/lib/web-push";
 
 export function BannerSolicitacaoNotificacao() {
-  const [visivel, setVisivel] = useState(() => {
-    if (!suportaNotificacoesWeb()) return false;
-    if (conviteFoiDispensado()) return false;
-    return obterStatusPermissao() === "default";
-  });
+  const [visivel, setVisivel] = useState(false);
+
+  useEffect(() => {
+    if (suportaNotificacoesWeb() && !conviteFoiDispensado()) {
+      setVisivel(obterStatusPermissao() === "default");
+    }
+  }, []);
 
   if (!visivel) return null;
 
@@ -25,6 +28,10 @@ export function BannerSolicitacaoNotificacao() {
     setVisivel(false);
     if (permissao === "granted") {
       toast.success("Notificações no navegador ativadas com sucesso!");
+      void dispararNotificacaoNativa("ThicketHub · Notificações Ativadas", {
+        body: "Alertas na área de trabalho e no Windows estão prontos!",
+        url: "/chamados",
+      });
     } else if (permissao === "denied") {
       toast.info("Notificações desativadas. Você pode reativá-las nas configurações do navegador.");
     }

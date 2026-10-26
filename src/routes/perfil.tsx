@@ -960,8 +960,12 @@ function AssinaturaForm({
 }
 
 function NotificacoesTab() {
-  const [permissao, setPermissao] = useState<StatusPermissaoWeb>(obterStatusPermissao());
+  const [permissao, setPermissao] = useState<StatusPermissaoWeb>("unsupported");
   const [carregando, setCarregando] = useState(false);
+
+  useEffect(() => {
+    setPermissao(obterStatusPermissao());
+  }, []);
 
   async function handleSolicitar() {
     setCarregando(true);
@@ -979,14 +983,38 @@ function NotificacoesTab() {
   }
 
   async function handleTestar() {
-    const ok = await dispararNotificacaoNativa("ThicketHub · Teste de Notificação", {
-      body: "Seus alertas na área de trabalho estão funcionando perfeitamente!",
-      url: "/chamados",
+    // 1. Popup imediato no navegador
+    toast.info("🔔 ThicketHub · Alerta no Navegador", {
+      description: "Popup interno no navegador ativo e funcionando!",
+      action: {
+        label: "Ir para Chamados",
+        onClick: () => {
+          window.location.href = "/chamados";
+        },
+      },
+      duration: 6000,
     });
-    if (ok) {
-      toast.success("Notificação enviada com sucesso para a área de trabalho!");
+
+    // 2. Se permissão for default, solicita ao usuário
+    let p = permissao;
+    if (p === "default") {
+      p = await solicitarPermissaoNotificacoes();
+      setPermissao(p);
+    }
+
+    // 3. Notificação nativa no Windows
+    if (p === "granted") {
+      const ok = await dispararNotificacaoNativa("ThicketHub · Teste no Windows", {
+        body: "A notificação na área de trabalho e no Windows está ativa!",
+        url: "/chamados",
+      });
+      if (ok) {
+        toast.success("Notificação enviada com sucesso para o Windows / área de trabalho!");
+      } else {
+        toast.error("Não foi possível emitir no Windows. Verifique as configurações de notificações do sistema.");
+      }
     } else {
-      toast.error("Não foi possível enviar a notificação. Verifique as permissões.");
+      toast.warning("Para ver notificações no Windows, autorize as notificações no navegador.");
     }
   }
 

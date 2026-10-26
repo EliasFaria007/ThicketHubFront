@@ -106,12 +106,34 @@ export async function dispararNotificacaoNativa(
   if (Notification.permission !== "granted") return false;
 
   try {
-    const icone = opcoes?.icone || "/favicon.ico";
+    const iconeUrl =
+      typeof window !== "undefined"
+        ? new URL(opcoes?.icone || "/favicon.ico", window.location.origin).href
+        : opcoes?.icone;
+
+    if (typeof navigator !== "undefined" && "serviceWorker" in navigator) {
+      try {
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (reg && reg.showNotification) {
+          await reg.showNotification(titulo, {
+            body: opcoes?.body,
+            tag: opcoes?.tag,
+            icon: iconeUrl,
+            badge: iconeUrl,
+            data: { url: opcoes?.url },
+          });
+          return true;
+        }
+      } catch {
+        // Fallback para new Notification caso serviceWorker falhe
+      }
+    }
+
     const notif = new Notification(titulo, {
       body: opcoes?.body,
       tag: opcoes?.tag,
-      icon: icone,
-      badge: icone,
+      icon: iconeUrl,
+      badge: iconeUrl,
     });
 
     notif.onclick = () => {

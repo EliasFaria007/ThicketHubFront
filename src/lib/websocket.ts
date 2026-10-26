@@ -69,20 +69,68 @@ class RealtimeClient {
         // Usa host atual
       }
 
-      const wsUrl = `${wsProtocol}//${wsHost}/api/ws${token ? `?token=${encodeURIComponent(token)}` : ""}`;
+      const wsUrl = `${wsProtocol}//${wsHost}/api/ws/websocket${token ? `?token=${encodeURIComponent(token)}` : ""}`;
       this.socket = new WebSocket(wsUrl);
 
       this.socket.onopen = () => {
+        // Envia handshake STOMP para o Spring Boot MessageBroker
+        const authHeader = token ? `\nAuthorization:Bearer ${token}\npasscode:${token}` : "";
+        const connectFrame = `CONNECT\naccept-version:1.1,1.2\nheart-beat:10000,10000${authHeader}\n\n\0`;
+        try {
+          this.socket?.send(connectFrame);
+        } catch {
+          // Fallback para conexão genérica
+        }
         this.setStatus("conectado");
         this.tentativas = 0;
       };
 
       this.socket.onmessage = (event) => {
+        const raw = typeof event.data === "string" ? event.data : "";
+
+        // Trata respostas do protocolo STOMP
+        if (raw.startsWith("CONNECTED")) {
+          // Após conexão aceita, inscreve-se na fila privada do usuário e no broadcast de chamados
+          try {
+            this.socket?.send("SUBSCRIBE\nid:sub-user\ndestination:/user/queue/notificacoes\n\n\0");
+            this.socket?.send("SUBSCRIBE\nid:sub-topic\ndestination:/topic/chamados\n\n\0");
+          } catch {
+            // Silencioso
+          }
+          return;
+        }
+
+        if (raw.startsWith("MESSAGE")) {
+          const bodyIndex = raw.indexOf("\n\n");
+          if (bodyIndex !== -1) {
+            let body = raw.substring(bodyIndex + 2);
+            const nullIdx = body.indexOf("\0");
+            if (nullIdx !== -1) {
+              body = body.substring(0, nullIdx);
+            }
+            try {
+              const json = JSON.parse(body);
+              const msg: MensagemWs = {
+                tipo: (json.tipo ? json.tipo.toLowerCase() : "notificacao") as MensagemWs["tipo"],
+                titulo: json.titulo || json.mensagem || (json.protocolo ? `Atualização no chamado #${json.protocolo}` : "Atualização de chamado"),
+                descricao: json.mensagem || json.descricao || (json.protocolo ? `Protocolo #${json.protocolo}` : undefined),
+                chamadoId: json.chamadoId,
+                timestamp: json.criadoEm || new Date().toISOString(),
+              };
+              this.notificar(msg);
+            } catch {
+              // Ignora payloads não JSON
+            }
+          }
+          return;
+        }
+
+        // Fallback para mensagens puramente JSON (simuladores ou endpoints REST)
         try {
-          const dados = JSON.parse(event.data) as MensagemWs;
+          const dados = JSON.parse(raw) as MensagemWs;
           this.notificar(dados);
         } catch {
-          // Ignora mensagens que não são JSON
+          // Ignora mensagens de controle ou heartbeats
         }
       };
 
@@ -132,8 +180,17 @@ class RealtimeClient {
 
   private notificar(msg: MensagemWs) {
     this.tocarAlertaSonoro();
-    toast.info(msg.titulo, {
+    toast.info(`🔔 ${msg.titulo}`, {
       description: msg.descricao,
+      action: msg.chamadoId
+        ? {
+            label: "Ver chamado",
+            onClick: () => {
+              window.location.href = `/chamados/${msg.chamadoId}`;
+            },
+          }
+        : undefined,
+      duration: 8000,
     });
     this.ouvintesMensagem.forEach((cb) => cb(msg));
   }

@@ -28,6 +28,7 @@ export function SinoNotificacoes() {
   const [statusWs, setStatusWs] = useState<StatusConexaoWs>("desconectado");
   const [permissaoWeb, setPermissaoWeb] = useState<StatusPermissaoWeb>("unsupported");
   const ultimosIdsVistos = useRef<Set<string>>(new Set());
+  const isPrimeiraCarga = useRef(true);
 
   useEffect(() => {
     setPermissaoWeb(obterStatusPermissao());
@@ -47,10 +48,10 @@ export function SinoNotificacoes() {
       void queryClient.invalidateQueries({ queryKey: ["chamados"] });
       void queryClient.invalidateQueries({ queryKey: ["metricas"] });
 
-      // Dispara notificação nativa se a permissão foi solicitada e concedida
+      // Dispara notificação nativa no Windows se a permissão foi concedida
       if (suportaNotificacoesWeb() && obterStatusPermissao() === "granted") {
         const titulo = msg?.titulo || msg?.mensagem || "Atualização em Chamado";
-        const corpo = msg?.protocolo ? `Protocolo #${msg.protocolo}` : "Há uma nova atualização para você.";
+        const corpo = msg?.protocolo ? `Protocolo #${msg.protocolo}` : (msg?.descricao || "Há uma nova atualização para você.");
         void dispararNotificacaoNativa(`ThicketHub · ${titulo}`, {
           body: corpo,
           url: msg?.chamadoId ? `/chamados/${msg.chamadoId}` : "/chamados",
@@ -67,26 +68,46 @@ export function SinoNotificacoes() {
   const { data } = useQuery({
     queryKey: ["notificacoes"],
     queryFn: listarNotificacoes,
-    refetchInterval: 30_000,
+    refetchInterval: 15_000,
+    refetchIntervalInBackground: true,
   });
 
-  // Emite notificação nativa para novos itens recebidos via polling caso o usuário não esteja com a janela ativa
+  // Emite notificação no navegador (popup) e no Windows (nativo) para novos itens recebidos via polling
   useEffect(() => {
-    if (!data?.items || data.items.length === 0) return;
+    if (!data?.items) return;
 
-    if (suportaNotificacoesWeb() && obterStatusPermissao() === "granted") {
-      const novosNaoLidos = data.items.filter(
-        (n) => !n.lida && !ultimosIdsVistos.current.has(n.id),
-      );
+    if (isPrimeiraCarga.current) {
+      data.items.forEach((n) => ultimosIdsVistos.current.add(n.id));
+      isPrimeiraCarga.current = false;
+      return;
+    }
 
-      // Se houver novos itens e a janela estiver em segundo plano
-      if (novosNaoLidos.length > 0 && typeof document !== "undefined" && document.hidden) {
-        const primeiro = novosNaoLidos[0]!;
-        void dispararNotificacaoNativa(`ThicketHub · ${primeiro.titulo}`, {
-          body: `${primeiro.protocolo} · ${desdeAgora(primeiro.criadoEm)}`,
-          url: `/chamados/${primeiro.chamadoId}`,
+    const novosNaoLidos = data.items.filter(
+      (n) => !n.lida && !ultimosIdsVistos.current.has(n.id),
+    );
+
+    if (novosNaoLidos.length > 0) {
+      novosNaoLidos.forEach((item) => {
+        // 1. Popup no Navegador (Sonner Toast interativo)
+        toast.info(`🔔 ${item.titulo}`, {
+          description: `${item.protocolo} · ${desdeAgora(item.criadoEm)}`,
+          action: {
+            label: "Ver chamado",
+            onClick: () => {
+              window.location.href = `/chamados/${item.chamadoId}`;
+            },
+          },
+          duration: 8000,
         });
-      }
+
+        // 2. Alerta nativo no Windows / Sistema Operacional
+        if (suportaNotificacoesWeb() && obterStatusPermissao() === "granted") {
+          void dispararNotificacaoNativa(`ThicketHub · ${item.titulo}`, {
+            body: `${item.protocolo} · ${desdeAgora(item.criadoEm)}`,
+            url: `/chamados/${item.chamadoId}`,
+          });
+        }
+      });
     }
 
     // Atualiza o conjunto de ids conhecidos
@@ -109,14 +130,38 @@ export function SinoNotificacoes() {
   }
 
   async function handleTestarNotificacao() {
-    const ok = await dispararNotificacaoNativa("ThicketHub · Teste de Notificação", {
-      body: "Notificações na área de trabalho funcionando perfeitamente!",
-      url: "/chamados",
+    // 1. Dispara popup imediato no navegador
+    toast.info("🔔 ThicketHub · Teste de Notificação", {
+      description: "Notificação interna no navegador funcionando perfeitamente!",
+      action: {
+        label: "Ver chamados",
+        onClick: () => {
+          window.location.href = "/chamados";
+        },
+      },
+      duration: 6000,
     });
-    if (ok) {
-      toast.success("Notificação de teste disparada para a sua área de trabalho!");
+
+    // 2. Se a permissão no Windows ainda for default, solicita ao usuário
+    let perm = obterStatusPermissao();
+    if (perm === "default") {
+      perm = await solicitarPermissaoNotificacoes();
+      setPermissaoWeb(perm);
+    }
+
+    // 3. Dispara alerta na área de trabalho / Windows
+    if (perm === "granted") {
+      const ok = await dispararNotificacaoNativa("ThicketHub · Notificação Windows", {
+        body: "Alerta na área de trabalho e no Windows funcionando com sucesso!",
+        url: "/chamados",
+      });
+      if (ok) {
+        toast.success("Notificação enviada para a área de trabalho do Windows!");
+      } else {
+        toast.error("Não foi possível exibir no Windows. Verifique se as notificações do sistema estão liberadas.");
+      }
     } else {
-      toast.error("Não foi possível emitir a notificação. Verifique a permissão do navegador.");
+      toast.warning("Para ver o alerta no Windows, permita notificações no navegador.");
     }
   }
 
