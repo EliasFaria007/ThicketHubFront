@@ -1,6 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
-import { Building2, Loader2, Lock, Mail } from "lucide-react";
+import { Building2, CheckCircle2, Loader2, Lock, Mail, XCircle } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 import { z } from "zod";
 
@@ -24,13 +24,24 @@ export const Route = createFileRoute("/login")({
       },
       { property: "og:title", content: "Entrar — Central de Chamados" },
       {
-        property: "og:description",
+        name: "og:description",
         content: "Acesso restrito a servidores da instituição. Abra e acompanhe seus chamados de suporte.",
       },
     ],
   }),
   component: LoginPage,
 });
+
+function extrairDadosOAuth(hashOuSearch: string) {
+  if (!hashOuSearch) return null;
+  const limpo = hashOuSearch.replace(/^[#?]/, "");
+  const params = new URLSearchParams(limpo);
+  const idToken = params.get("id_token") || params.get("access_token");
+  const code = params.get("code");
+  const error = params.get("error_description") || params.get("error");
+  if (!idToken && !code && !error) return null;
+  return { idToken, code, error: error ? decodeURIComponent(error) : null };
+}
 
 const schema = z.object({
   email: z
@@ -50,6 +61,63 @@ function LoginPage() {
   const [erroMicrosoft, setErroMicrosoft] = useState<string | null>(null);
   const [tentandoSsoSilencioso, setTentandoSsoSilencioso] = useState(false);
   const authEmProcessamentoRef = useRef(false);
+  const popupRef = useRef<Window | null>(null);
+
+  // Detecta se esta janela atual é um retorno de callback OAuth (id_token, code ou erro na URL)
+  const [ehCallbackOAuth, setEhCallbackOAuth] = useState(false);
+  const [erroCallback, setErroCallback] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const raw = window.location.hash || window.location.search;
+    const dados = extrairDadosOAuth(raw);
+    if (!dados) return;
+
+    setEhCallbackOAuth(true);
+    if (dados.error) setErroCallback(dados.error);
+
+    // 1. BroadcastChannel: transmite instantaneamente para qualquer outra janela aberta da mesma origem
+    try {
+      const channel = new BroadcastChannel("thickethub_oauth_channel");
+      channel.postMessage({ type: "MS_AUTH_CALLBACK", hash: raw });
+      channel.close();
+    } catch {}
+
+    // 2. LocalStorage: dispara evento storage na janela principal caso BroadcastChannel não esteja ativo
+    try {
+      window.localStorage.setItem(
+        "thickethub_oauth_payload",
+        JSON.stringify({ hash: raw, timestamp: Date.now() })
+      );
+    } catch {}
+
+    // 3. PostMessage para window.opener (se disponível)
+    try {
+      if (window.opener && !window.opener.closed) {
+        window.opener.postMessage({ type: "MS_AUTH_CALLBACK", hash: raw }, window.location.origin);
+      }
+    } catch {}
+
+    // 4. PostMessage para window.parent (se estiver no iframe oculto de SSO silencioso)
+    try {
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({ type: "MS_SILENT_AUTH_CALLBACK", hash: raw }, window.location.origin);
+      }
+    } catch {}
+
+    // 5. Tenta fechar imediatamente o popup
+    try {
+      window.close();
+    } catch {}
+
+    const timer = setTimeout(() => {
+      try {
+        window.close();
+      } catch {}
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     if (hidratado && token) void router.navigate({ to: "/", replace: true });
@@ -80,71 +148,87 @@ function LoginPage() {
     },
   });
 
-  // Se esta janela for o próprio popup de retorno do OAuth2 da Microsoft
+  // Ouvinte unificado e resiliente na janela principal (PostMessage, BroadcastChannel, LocalStorage)
   useEffect(() => {
-    if (typeof window !== "undefined" && window.opener && window.name === "MicrosoftLoginPopup") {
-      const hash = window.location.hash || window.location.search;
-      if (hash) {
-        window.opener.postMessage({ type: "MS_AUTH_CALLBACK", hash }, window.location.origin);
-        window.close();
+    function processarHashRetorno(hash: string) {
+      const dados = extrairDadosOAuth(hash);
+      if (!dados) return;
+
+      // Se temos o popup sob referência, fecha-o imediatamente
+      if (popupRef.current && !popupRef.current.closed) {
+        try {
+          popupRef.current.close();
+        } catch {}
+      }
+
+      if (dados.error) {
+        setErroMicrosoft(dados.error);
+        setTentandoSsoSilencioso(false);
+        return;
+      }
+
+      if (dados.idToken || dados.code) {
+        if (authEmProcessamentoRef.current) return;
+        authEmProcessamentoRef.current = true;
+        const emailHint = valores.email.trim();
+        mutationMicrosoft.mutate({
+          idToken: dados.idToken || dados.code || "",
+          ...(emailHint ? { email: emailHint } : {}),
+        });
+      } else {
+        setTentandoSsoSilencioso(false);
       }
     }
-  }, []);
 
-  // Ouvinte na janela principal para mensagens do popup ou do iframe silencioso
-  useEffect(() => {
+    // 1. PostMessage
     function onMessage(event: MessageEvent) {
       if (event.origin !== window.location.origin) return;
       if (event.data?.type === "MS_AUTH_CALLBACK" || event.data?.type === "MS_SILENT_AUTH_CALLBACK") {
-        const hash = event.data.hash as string;
-        const params = new URLSearchParams(hash.replace(/^[#?]/, ""));
-        const idToken = params.get("id_token") || params.get("access_token");
-        const code = params.get("code");
-        const error = params.get("error_description") || params.get("error");
-
-        if (error) {
-          // Se for SSO silencioso e falhou (requer interação do usuário), apenas para sem poluir a tela
-          if (event.data?.type === "MS_SILENT_AUTH_CALLBACK") {
-            setTentandoSsoSilencioso(false);
-            return;
-          }
-          setErroMicrosoft(decodeURIComponent(error));
-          return;
-        }
-
-        const emailHint = valores.email.trim();
-        if (idToken || code) {
-          if (authEmProcessamentoRef.current) return;
-          authEmProcessamentoRef.current = true;
-          mutationMicrosoft.mutate({
-            idToken: idToken || code || "",
-            ...(emailHint ? { email: emailHint } : {}),
-          });
-        } else {
-          setTentandoSsoSilencioso(false);
-        }
+        processarHashRetorno(event.data.hash);
       }
     }
-
     window.addEventListener("message", onMessage);
-    return () => window.removeEventListener("message", onMessage);
+
+    // 2. BroadcastChannel
+    let channel: BroadcastChannel | null = null;
+    try {
+      channel = new BroadcastChannel("thickethub_oauth_channel");
+      channel.onmessage = (event) => {
+        if (event.data?.type === "MS_AUTH_CALLBACK" && event.data?.hash) {
+          processarHashRetorno(event.data.hash);
+        }
+      };
+    } catch {}
+
+    // 3. LocalStorage
+    function onStorage(event: StorageEvent) {
+      if (event.key === "thickethub_oauth_payload" && event.newValue) {
+        try {
+          const parsed = JSON.parse(event.newValue);
+          if (parsed?.hash) {
+            window.localStorage.removeItem("thickethub_oauth_payload");
+            processarHashRetorno(parsed.hash);
+          }
+        } catch {}
+      }
+    }
+    window.addEventListener("storage", onStorage);
+
+    return () => {
+      window.removeEventListener("message", onMessage);
+      window.removeEventListener("storage", onStorage);
+      if (channel) {
+        try {
+          channel.close();
+        } catch {}
+      }
+    };
   }, [valores.email, mutationMicrosoft]);
 
-  // Se esta janela estiver dentro do iframe invisível de login silencioso
+  // Tentativa de SSO silencioso automático ao carregar a página
   useEffect(() => {
-    if (typeof window !== "undefined" && window.parent && window.parent !== window && window.name === "ms_silent_auth_frame") {
-      const hash = window.location.hash || window.location.search;
-      if (hash) {
-        window.parent.postMessage({ type: "MS_SILENT_AUTH_CALLBACK", hash }, window.location.origin);
-      }
-    }
-  }, []);
+    if (typeof window === "undefined" || !hidratado || token || ehCallbackOAuth) return;
 
-  // Tentativa de SSO silencioso automático ao carregar a página (Opção A)
-  useEffect(() => {
-    if (typeof window === "undefined" || !hidratado || token) return;
-
-    // Se o usuário clicou em 'Sair' voluntariamente, respeita e não força login automático imediato
     if (window.sessionStorage.getItem("logout_manual") === "true") {
       return;
     }
@@ -154,7 +238,6 @@ function LoginPage() {
 
     if (!clientId) return;
 
-    // Dispara login silencioso via iframe oculto com prompt=none
     setTentandoSsoSilencioso(true);
 
     const redirectUri = window.location.origin + "/login";
@@ -168,7 +251,6 @@ function LoginPage() {
       `&prompt=none` +
       `&nonce=${Date.now()}`;
 
-    // Cria ou reutiliza iframe oculto
     let iframe = document.getElementById("ms_silent_auth_frame") as HTMLIFrameElement | null;
     if (!iframe) {
       iframe = document.createElement("iframe");
@@ -183,19 +265,17 @@ function LoginPage() {
     }
     iframe.src = silentAuthUrl;
 
-    // Timeout de segurança para caso o iframe demore ou não responda
     const timer = setTimeout(() => {
       setTentandoSsoSilencioso(false);
     }, 4000);
 
     return () => clearTimeout(timer);
-  }, [hidratado, token]);
+  }, [hidratado, token, ehCallbackOAuth]);
 
   function handleLoginMicrosoft() {
     setErroMicrosoft(null);
     const emailHint = valores.email.trim();
 
-    // Configurações do popup OAuth2 / Entra ID da Microsoft
     const clientId = (import.meta as any).env.VITE_AZURE_CLIENT_ID;
     const tenantId = (import.meta as any).env.VITE_AZURE_TENANT_ID || "common";
 
@@ -212,7 +292,6 @@ function LoginPage() {
     const left = window.screenX + (window.outerWidth - width) / 2;
     const top = window.screenY + (window.outerHeight - height) / 2;
 
-    // URL de autorização da Microsoft (OAuth 2.0 / OpenID Connect)
     const authUrl =
       `https://login.microsoftonline.com/${encodeURIComponent(tenantId)}/oauth2/v2.0/authorize?` +
       `client_id=${encodeURIComponent(clientId)}` +
@@ -229,50 +308,49 @@ function LoginPage() {
       "MicrosoftLoginPopup",
       `width=${width},height=${height},left=${left},top=${top},status=no,toolbar=no,menubar=no,location=yes,resizable=yes`
     );
+    popupRef.current = popup;
 
     if (!popup || popup.closed || typeof popup.closed === "undefined") {
       setErroMicrosoft("O navegador bloqueou a janela pop-up. Por favor, habilite pop-ups para este site.");
       return;
     }
 
-    // Monitora a janela pop-up para o caso de o usuário fechá-la ou fallback
     const timer = setInterval(() => {
       try {
-        if (popup.closed) {
+        if (!popup || popup.closed) {
           clearInterval(timer);
           return;
         }
 
-        // Tenta ler o hash da URL se o popup redirecionou de volta para a mesma origem
         if (popup.location.href.includes(window.location.origin)) {
           const hash = popup.location.hash || popup.location.search;
-          const params = new URLSearchParams(hash.replace(/^[#?]/, ""));
-          const idToken = params.get("id_token") || params.get("access_token");
-          const error = params.get("error_description") || params.get("error");
+          const dados = extrairDadosOAuth(hash);
+          if (dados) {
+            try {
+              popup.close();
+            } catch {}
+            clearInterval(timer);
 
-          popup.close();
-          clearInterval(timer);
+            if (dados.error) {
+              setErroMicrosoft(dados.error);
+              return;
+            }
 
-          if (error) {
-            setErroMicrosoft(decodeURIComponent(error));
-            return;
-          }
-
-          if (idToken) {
-            if (authEmProcessamentoRef.current) return;
-            authEmProcessamentoRef.current = true;
-            mutationMicrosoft.mutate({
-              idToken,
-              ...(emailHint ? { email: emailHint } : {}),
-            });
+            if (dados.idToken || dados.code) {
+              if (authEmProcessamentoRef.current) return;
+              authEmProcessamentoRef.current = true;
+              mutationMicrosoft.mutate({
+                idToken: dados.idToken || dados.code || "",
+                ...(emailHint ? { email: emailHint } : {}),
+              });
+            }
           }
         }
       } catch {
-        // Cross-origin inicial enquanto o usuário navega na página de login da Microsoft (esperado)
+        // Cross-origin inicial esperado
       }
-    }, 500);
+    }, 400);
 
-    // Timeout de segurança: se após 5 minutos ainda estiver aberto, limpa o timer
     setTimeout(() => clearInterval(timer), 300000);
   }
 
@@ -287,6 +365,63 @@ function LoginPage() {
     }
     setErros({});
     mutation.mutate(resultado.data);
+  }
+
+  // Se esta janela é a janela de retorno/callback OAuth da Microsoft no popup
+  if (ehCallbackOAuth) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-background p-6 text-center">
+        <div className="w-full max-w-sm rounded-xl border border-border bg-card p-8 shadow-lg">
+          <div className="mx-auto mb-4 grid size-12 place-items-center rounded-full bg-primary/10 text-primary">
+            <Building2 className="size-6" />
+          </div>
+          {erroCallback ? (
+            <>
+              <div className="mx-auto mb-2 text-destructive">
+                <XCircle className="size-8 mx-auto" />
+              </div>
+              <h2 className="text-lg font-semibold text-destructive">Falha na Autenticação</h2>
+              <p className="mt-2 text-sm text-muted-foreground">{erroCallback}</p>
+              <Button
+                className="mt-6 w-full"
+                variant="outline"
+                onClick={() => {
+                  try {
+                    window.close();
+                  } catch {}
+                }}
+              >
+                Fechar Janela
+              </Button>
+            </>
+          ) : (
+            <>
+              <div className="mx-auto mb-2 text-primary">
+                <CheckCircle2 className="size-8 mx-auto text-primary" />
+              </div>
+              <h2 className="text-lg font-semibold text-foreground">Autenticado com Sucesso</h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Sua conta institucional foi validada. Concluindo entrada na Central de Chamados...
+              </p>
+              <div className="mt-6 flex justify-center">
+                <Loader2 className="size-6 animate-spin text-primary" />
+              </div>
+              <Button
+                className="mt-6 w-full"
+                variant="outline"
+                onClick={() => {
+                  try {
+                    window.close();
+                  } catch {}
+                }}
+              >
+                Fechar esta janela
+              </Button>
+            </>
+          )}
+        </div>
+      </div>
+    );
   }
 
   return (
