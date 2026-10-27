@@ -195,7 +195,7 @@ export interface RegistroAuditoria {
  * O campo `accessToken` é mapeado para `token` no store de autenticação.
  */
 export interface LoginResponse {
-  /** JWT de acesso (curta duração — 15 min por padrão). */
+  /** JWT de acesso (curta duração — 1 hora por padrão). */
   accessToken: string;
   refreshToken: string;
   id: number;
