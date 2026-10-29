@@ -63,6 +63,7 @@ import {
 import { alterarSenha, completarCadastro } from "@/services/auth";
 import { obterConfigDominios, salvarConfigDominios, type ConfigDominios } from "@/services/configuracoes";
 import { obterUsuarioLogado, salvarAssinaturaUsuario } from "@/services/usuarios";
+import { uploadArquivo } from "@/services/arquivos";
 import { useAuthStore } from "@/stores/auth";
 
 export const Route = createFileRoute("/perfil")({
@@ -660,9 +661,22 @@ function AssinaturaForm({
   }, [user]);
 
   const salvar = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       if (!user) throw new Error("Usuário não autenticado");
-      const assinaturaFinal = montarAssinaturaCompleta(assinatura, anexoImagem);
+
+      let imagemFinal = anexoImagem;
+      if (anexoImagem && anexoImagem.startsWith("data:")) {
+        try {
+          const blob = await fetch(anexoImagem).then((r) => r.blob());
+          const up = await uploadArquivo(blob, "assinaturas", anexoImagemNome || "assinatura.png");
+          imagemFinal = up.url;
+          setAnexoImagem(up.url);
+        } catch (e) {
+          console.warn("Falha ao enviar imagem para o R2:", e);
+        }
+      }
+
+      const assinaturaFinal = montarAssinaturaCompleta(assinatura, imagemFinal);
       return salvarAssinaturaUsuario(user.id, {
         assinatura: assinaturaFinal || null,
         incluirAssinaturaPadrao: incluirPadrao,
@@ -725,7 +739,14 @@ function AssinaturaForm({
         setAssinatura(res.conteudo);
         toast.success(`Assinatura importada do arquivo "${res.nome}" com sucesso!`);
       } else {
-        setAnexoImagem(res.conteudo);
+        try {
+          const up = await uploadArquivo(file, "assinaturas");
+          setAnexoImagem(up.url);
+          toast.success(`Imagem de assinatura "${res.nome}" enviada com sucesso para o armazenamento em nuvem!`);
+        } catch {
+          setAnexoImagem(res.conteudo);
+          toast.info(`Imagem carregada localmente.`);
+        }
         if (!assinatura.trim()) {
           setAssinatura(`Atenciosamente,\n${user?.nome ?? ""}\n${user?.setor ? `${user.setor} — ` : ""}Central de Atendimento`);
         }
