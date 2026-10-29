@@ -44,6 +44,7 @@ import {
   listarArtigos,
   removerArtigo,
 } from "@/services/base-conhecimento";
+import { uploadArquivo } from "@/services/arquivos";
 import { useAuthStore } from "@/stores/auth";
 import type { ArtigoBaseConhecimento } from "@/types";
 
@@ -115,18 +116,27 @@ function BaseConhecimentoPage() {
       return;
     }
 
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = reader.result as string;
+    try {
+      toast.info("Enviando documento PDF para a nuvem...");
+      const up = await uploadArquivo(file, "documentos");
       setFormAnexoPdfNome(file.name);
       setFormAnexoPdfTamanho(file.size);
-      setFormAnexoPdfBase64(result);
-      toast.success(`PDF anexado com sucesso: ${file.name}`);
-    };
-    reader.onerror = () => {
-      toast.error("Erro ao ler o arquivo PDF.");
-    };
-    reader.readAsDataURL(file);
+      setFormAnexoPdfBase64(up.url);
+      toast.success(`PDF enviado com sucesso para a nuvem: ${file.name}`);
+    } catch {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        setFormAnexoPdfNome(file.name);
+        setFormAnexoPdfTamanho(file.size);
+        setFormAnexoPdfBase64(result);
+        toast.success(`PDF anexado localmente: ${file.name}`);
+      };
+      reader.onerror = () => {
+        toast.error("Erro ao ler o arquivo PDF.");
+      };
+      reader.readAsDataURL(file);
+    }
   }
 
   function removerAnexoPdf() {

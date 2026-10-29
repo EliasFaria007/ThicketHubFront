@@ -1,4 +1,5 @@
 import type { Anexo } from "@/types";
+import { uploadArquivo } from "@/services/arquivos";
 
 /**
  * Extensões e formatos aceitos para anexos.
@@ -72,13 +73,24 @@ export function extrairArquivosClipboard(e: React.ClipboardEvent | ClipboardEven
  */
 export async function arquivoParaAnexo(file: File): Promise<Anexo> {
   const id = `anx-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
-  const dataUrl = await lerEOtimizarImagem(file);
-  return {
-    id,
-    nome: file.name,
-    tamanho: file.size,
-    url: dataUrl,
-  };
+  try {
+    const up = await uploadArquivo(file, "anexos");
+    return {
+      id,
+      nome: file.name,
+      tamanho: file.size,
+      url: up.url,
+    };
+  } catch (err) {
+    console.warn("Upload para Cloudflare R2 falhou, utilizando fallback local:", err);
+    const dataUrl = await lerEOtimizarImagem(file);
+    return {
+      id,
+      nome: file.name,
+      tamanho: file.size,
+      url: dataUrl,
+    };
+  }
 }
 
 /**
