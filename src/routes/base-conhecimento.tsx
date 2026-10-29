@@ -101,7 +101,7 @@ function BaseConhecimentoPage() {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   }
 
-  function handlePdfChange(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handlePdfChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
 
