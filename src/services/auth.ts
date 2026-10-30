@@ -97,6 +97,7 @@ export function completarCadastro(payload: {
  */
 export interface SolicitarResetSmsResponse {
   telefoneMascarado?: string;
+  emailMascarado?: string;
   codigoDemo?: string;
 }
 
@@ -105,11 +106,10 @@ export function solicitarResetSenhaSms(payload: { telefone?: string; email?: str
 }
 
 /**
- * Valida o código SMS recebido e obtém um ticket de sessão único para
- * autorizar a redefinição de senha.
+ * Valida o código de verificação recebido (por e-mail ou SMS) e obtém um ticket de sessão único.
  * Endpoint: POST /auth/recuperacao-sms/validar
  */
-export function validarCodigoSms(payload: { telefone: string; codigo: string }) {
+export function validarCodigoSms(payload: { telefone?: string; email?: string; codigo: string }) {
   return apiPost<string>("/auth/recuperacao-sms/validar", payload);
 }
 
@@ -122,14 +122,15 @@ export function redefinirSenha(payload: { ticketValidacao: string; novaSenha: st
 }
 
 /**
- * Função compatível com o formulário de redefinição de senha via SMS.
- * Executa a validação do código SMS e o reset de senha sequencialmente.
+ * Função compatível com o formulário de redefinição de senha.
+ * Executa a validação do código recebido (e-mail/SMS) e o reset de senha sequencialmente.
  */
 export async function confirmarResetSenhaSms(payload: { email?: string; telefone?: string; codigo: string; novaSenha: string }) {
   const tel = payload.telefone || payload.email || "";
   try {
     const ticket = await validarCodigoSms({
       telefone: tel,
+      email: payload.email,
       codigo: payload.codigo,
     });
     await redefinirSenha({

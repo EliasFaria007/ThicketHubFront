@@ -1,6 +1,6 @@
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowLeft, Building2, CheckCircle2, Loader2, Lock, Mail, MessageSquare, Phone } from "lucide-react";
+import { ArrowLeft, Building2, CheckCircle2, Loader2, Lock, Mail, MessageSquare } from "lucide-react";
 import { useState } from "react";
 
 import { MensagemErro } from "@/components/comum/MensagemErro";
@@ -14,7 +14,7 @@ export const Route = createFileRoute("/recuperar-senha")({
   head: () => ({
     meta: [
       { title: "Recuperar senha — Central de Chamados" },
-      { name: "description", content: "Redefina sua senha institucional com verificação via SMS." },
+      { name: "description", content: "Redefina sua senha institucional com código de verificação enviado por e-mail ou SMS." },
     ],
   }),
   component: RecuperarSenhaPage,
@@ -26,6 +26,7 @@ function RecuperarSenhaPage() {
   const [etapa, setEtapa] = useState<Etapa>("email");
   const [email, setEmail] = useState("");
   const [telefoneMascarado, setTelefoneMascarado] = useState("");
+  const [emailMascarado, setEmailMascarado] = useState("");
   const [codigoDemo, setCodigoDemo] = useState<string | undefined>(undefined);
   const [codigo, setCodigo] = useState("");
   const [novaSenha, setNovaSenha] = useState("");
@@ -36,6 +37,7 @@ function RecuperarSenhaPage() {
     mutationFn: () => solicitarResetSenhaSms({ email: email.trim() }),
     onSuccess: (data) => {
       setTelefoneMascarado(data.telefoneMascarado ?? "");
+      setEmailMascarado(data.emailMascarado ?? (email.trim() || "seu e-mail institucional"));
       setCodigoDemo(data.codigoDemo);
       setEtapa("codigo");
     },
@@ -64,7 +66,7 @@ function RecuperarSenhaPage() {
           <div>
             <h1 className="text-2xl font-bold tracking-tight text-foreground">Recuperar senha</h1>
             <p className="mt-1 text-sm text-muted-foreground">
-              Verificação de identidade via SMS institucional
+              Verificação de identidade via E-mail institucional
             </p>
           </div>
         </div>
@@ -75,7 +77,7 @@ function RecuperarSenhaPage() {
             <>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
                 <Mail className="size-4 shrink-0 text-primary" />
-                <span>Informe seu e-mail institucional para enviarmos o código SMS ao telefone cadastrado.</span>
+                <span>Informe seu e-mail institucional para enviarmos o código de verificação.</span>
               </div>
 
               <form
@@ -105,19 +107,20 @@ function RecuperarSenhaPage() {
 
                 <Button type="submit" className="w-full" disabled={!email.includes("@") || solicitar.isPending}>
                   {solicitar.isPending && <Loader2 className="size-4 animate-spin" />}
-                  {solicitar.isPending ? "Enviando SMS…" : "Enviar código SMS"}
+                  {solicitar.isPending ? "Enviando código…" : "Enviar código de verificação"}
                 </Button>
               </form>
             </>
           )}
 
-          {/* Etapa 2 — código SMS + nova senha */}
+          {/* Etapa 2 — código + nova senha */}
           {etapa === "codigo" && (
             <>
               <div className="flex items-center gap-2 rounded-lg border border-border bg-muted/40 p-3 text-sm text-muted-foreground">
-                <Phone className="size-4 shrink-0 text-primary" />
+                <Mail className="size-4 shrink-0 text-primary" />
                 <span>
-                  Código enviado para <strong className="text-foreground">{telefoneMascarado}</strong>.
+                  Código enviado para <strong className="text-foreground">{emailMascarado || email}</strong>
+                  {telefoneMascarado ? <> (e SMS para <strong className="text-foreground">{telefoneMascarado}</strong>)</> : null}.
                   Expira em 10 minutos.
                 </span>
               </div>
@@ -126,7 +129,7 @@ function RecuperarSenhaPage() {
                 <div className="flex items-center gap-2 rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-sm text-yellow-800 dark:border-yellow-800 dark:bg-yellow-950 dark:text-yellow-200">
                   <MessageSquare className="size-4 shrink-0" />
                   <span>
-                    <strong>Demonstração —</strong> código SMS: <strong>{codigoDemo}</strong>
+                    <strong>Demonstração —</strong> código de verificação: <strong>{codigoDemo}</strong>
                   </span>
                 </div>
               )}
