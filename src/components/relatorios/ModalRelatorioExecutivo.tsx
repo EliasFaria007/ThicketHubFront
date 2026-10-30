@@ -152,7 +152,7 @@ export function ModalRelatorioExecutivo({
       await exportarRelatorioExecutivoPptx({
         relatorios,
         filtros,
-        usuarioLogado,
+        ...(usuarioLogado ? { usuarioLogado } : {}),
       });
       toast.success("Apresentação PowerPoint (.pptx) gerada com sucesso!");
     } catch (erro) {

@@ -32,6 +32,6 @@ describe("Tópico 1 - Gerenciador de Anexos, Drag&Drop e Clipboard", () => {
 
     const extraidos = extrairArquivosClipboard(mockEvent);
     expect(extraidos.length).toBe(1);
-    expect(extraidos[0].name).toBe("screenshot.png");
+    expect(extraidos[0]!.name).toBe("screenshot.png");
   });
 });

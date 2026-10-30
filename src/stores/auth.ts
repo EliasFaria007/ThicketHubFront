@@ -1,4 +1,4 @@
-import { create } from "zustand";
+﻿import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 
 import type { Papel, User } from "@/types";
@@ -84,7 +84,7 @@ export const useAuthStore = create<AuthState>()(
           set({ token, refreshToken, user });
         }
       },
-      atualizarTokens: (tokens) => set({ token: tokens.accessToken || tokens.token, refreshToken: tokens.refreshToken }),
+      atualizarTokens: (tokens) => set({ token: tokens.accessToken ?? tokens.token ?? null, refreshToken: tokens.refreshToken }),
       atualizarUsuario: (atualizado) =>
         set((state) => {
           if (!state.user) return { user: atualizado };

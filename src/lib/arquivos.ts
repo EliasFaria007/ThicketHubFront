@@ -35,11 +35,12 @@ export function extrairArquivosClipboard(e: React.ClipboardEvent | ClipboardEven
   if (clipboardData.items && clipboardData.items.length > 0) {
     for (let i = 0; i < clipboardData.items.length; i++) {
       const item = clipboardData.items[i];
+      if (!item) continue;
       if (item.kind === "file") {
         const file = typeof item.getAsFile === "function" ? item.getAsFile() : null;
         if (file) {
           if (file.name === "image.png" || !file.name || file.name === "blob") {
-            const ext = file.type.split("/")[1] || "png";
+            const ext = file.type.split("/")[1] ?? "png";
             const novoFile = new File([file], `print-${timestamp}.${ext}`, { type: file.type });
             files.push(novoFile);
           } else {
@@ -54,8 +55,9 @@ export function extrairArquivosClipboard(e: React.ClipboardEvent | ClipboardEven
   if (files.length === 0 && clipboardData.files && clipboardData.files.length > 0) {
     for (let i = 0; i < clipboardData.files.length; i++) {
       const file = clipboardData.files[i];
+      if (!file) continue;
       if (file.name === "image.png" || !file.name || file.name === "blob") {
-        const ext = file.type.split("/")[1] || "png";
+        const ext = file.type.split("/")[1] ?? "png";
         const novoFile = new File([file], `print-${timestamp}.${ext}`, { type: file.type });
         files.push(novoFile);
       } else {

@@ -12,8 +12,8 @@ describe("extrairRegistrosAtendimento", () => {
     const texto = "Procedimento padrão realizado no equipamento.";
     const registros = extrairRegistrosAtendimento(texto);
     expect(registros.length).toBe(1);
-    expect(registros[0].conteudo).toBe(texto);
-    expect(registros[0].autor).toBeUndefined();
+    expect(registros[0]!.conteudo).toBe(texto);
+    expect(registros[0]!.autor).toBeUndefined();
   });
 
   it("deve separar claramente múltiplos registros estruturados", () => {
@@ -30,16 +30,16 @@ Peça substituída com sucesso. Sistema operando.
     const registros = extrairRegistrosAtendimento(texto);
     expect(registros.length).toBe(2);
 
-    expect(registros[0].data).toBe("25/10/2026, 14:00");
-    expect(registros[0].autor).toBe("Carlos Silva");
-    expect(registros[0].setor).toBe("Suporte N1");
-    expect(registros[0].conteudo).toBe("Primeira análise realizada. Aguardando peça.");
+    expect(registros[0]!.data).toBe("25/10/2026, 14:00");
+    expect(registros[0]!.autor).toBe("Carlos Silva");
+    expect(registros[0]!.setor).toBe("Suporte N1");
+    expect(registros[0]!.conteudo).toBe("Primeira análise realizada. Aguardando peça.");
 
-    expect(registros[1].data).toBe("25/10/2026, 16:30");
-    expect(registros[1].autor).toBe("Ana Pereira");
-    expect(registros[1].setor).toBe("Manutenção");
-    expect(registros[1].conteudo).toContain("Peça substituída com sucesso.");
-    expect(registros[1].conteudo).toContain("[ASSINATURA_IMAGEM:data:image/png;base64,abc]");
+    expect(registros[1]!.data).toBe("25/10/2026, 16:30");
+    expect(registros[1]!.autor).toBe("Ana Pereira");
+    expect(registros[1]!.setor).toBe("Manutenção");
+    expect(registros[1]!.conteudo).toContain("Peça substituída com sucesso.");
+    expect(registros[1]!.conteudo).toContain("[ASSINATURA_IMAGEM:data:image/png;base64,abc]");
   });
 
   it("deve ignorar tags THICKET_ANEXOS no corpo dos registros", () => {
@@ -51,6 +51,6 @@ Atendimento com foto em anexo.
 
     const registros = extrairRegistrosAtendimento(texto);
     expect(registros.length).toBe(1);
-    expect(registros[0].conteudo).toBe("Atendimento com foto em anexo.");
+    expect(registros[0]!.conteudo).toBe("Atendimento com foto em anexo.");
   });
 });

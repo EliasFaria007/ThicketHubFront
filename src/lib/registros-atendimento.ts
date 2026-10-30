@@ -24,7 +24,7 @@ export function extrairRegistrosAtendimento(conteudo?: string | null): RegistroA
   const registros: RegistroAtendimentoItem[] = [];
 
   for (let i = 0; i < blocos.length; i++) {
-    const bloco = blocos[i].trim();
+    const bloco = blocos[i]?.trim();
     if (!bloco) continue;
 
     // Tenta casar cabeçalho: ### 📋 Registro de Atendimento — 25/10/2026, 16:30 · Nome (Setor)
@@ -32,20 +32,20 @@ export function extrairRegistrosAtendimento(conteudo?: string | null): RegistroA
       /^###\s*📋\s*Registro de Atendimento\s*—\s*([^·\n]+)\s*·\s*([^\n]+)\n+([\s\S]*)$/i,
     );
     if (matchCabecalho) {
-      const dataStr = matchCabecalho[1].trim();
-      const autorSetor = matchCabecalho[2].trim();
-      const corpo = matchCabecalho[3].trim();
+      const dataStr = (matchCabecalho[1] ?? "").trim();
+      const autorSetor = (matchCabecalho[2] ?? "").trim();
+      const corpo = (matchCabecalho[3] ?? "").trim();
 
       // Separa autor e setor (ex: "Administrador do Sistema (TI)")
       const matchSetor = autorSetor.match(/^(.*?)\s*\((.*?)\)$/);
-      const autor = matchSetor ? matchSetor[1].trim() : autorSetor;
-      const setor = matchSetor ? matchSetor[2].trim() : undefined;
+      const autor = matchSetor ? (matchSetor[1] ?? autorSetor).trim() : autorSetor;
+      const setor = matchSetor?.[2]?.trim();
 
       registros.push({
         id: `reg-${i}-${dataStr.replace(/\D/g, "")}`,
         data: dataStr,
         autor,
-        setor,
+        ...(setor !== undefined ? { setor } : {}),
         conteudo: corpo,
       });
     } else {

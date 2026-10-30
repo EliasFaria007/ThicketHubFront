@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Adaptador de demonstração para o Axios.
  *
  * É usado APENAS quando VITE_API_BASE_URL não está configurada, para que a
@@ -1185,7 +1185,7 @@ const rotas: Rota[] = [
       if (!visivelPara(chamado, u)) return erro(403, "Chamado fora dos seus setores liberados.");
       if (chamado.tecnico) {
         const msg = `Chamado assumido pelo técnico: ${chamado.tecnico.nome}`;
-        notificar(chamado, "atribuicao", msg);
+        notificar(chamado, "assuncao", msg);
         return erro(409, msg);
       }
       chamado.tecnico = { id: u.id, nome: u.nome };

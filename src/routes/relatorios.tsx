@@ -1,4 +1,4 @@
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+﻿import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import {
   Activity,
@@ -828,7 +828,7 @@ function RelatoriosPage() {
           aoMudarAberto={setModalExecutivoAberta}
           relatorios={data}
           filtros={filtros}
-          usuarioLogado={user ?? undefined}
+          {...(user ? { usuarioLogado: { nome: user.nome, papel: user.papel } } : {})}
         />
       )}
     </AppLayout>

@@ -1,4 +1,4 @@
-import { obterAnexosLocalmente, salvarAnexosLocalmente } from "@/lib/arquivos";
+﻿import { obterAnexosLocalmente, salvarAnexosLocalmente } from "@/lib/arquivos";
 import { apiGet, apiPost, apiPut } from "@/lib/http";
 import { slaAtrasado } from "@/lib/sla";
 import type {
@@ -39,7 +39,7 @@ function adaptarComentario(com: any): Comentario {
       nome: com.autor?.nome ?? com.autorNome ?? com.usuarioNome ?? "Usuário",
       papel,
     },
-    anexos: todosAnexos.length > 0 ? todosAnexos : undefined,
+    ...(todosAnexos.length > 0 ? { anexos: todosAnexos as Anexo[] } : {}),
   };
 }
 

@@ -116,11 +116,10 @@ export async function dispararNotificacaoNativa(
         const reg = await navigator.serviceWorker.getRegistration();
         if (reg && reg.showNotification) {
           await reg.showNotification(titulo, {
-            body: opcoes?.body,
-            tag: opcoes?.tag,
-            icon: iconeUrl,
-            badge: iconeUrl,
-            data: { url: opcoes?.url },
+            ...(opcoes?.body !== undefined ? { body: opcoes.body } : {}),
+            ...(opcoes?.tag !== undefined ? { tag: opcoes.tag } : {}),
+            ...(iconeUrl !== undefined ? { icon: iconeUrl, badge: iconeUrl } : {}),
+            data: { ...(opcoes?.url !== undefined ? { url: opcoes.url } : {}) },
           });
           return true;
         }
@@ -130,10 +129,9 @@ export async function dispararNotificacaoNativa(
     }
 
     const notif = new Notification(titulo, {
-      body: opcoes?.body,
-      tag: opcoes?.tag,
-      icon: iconeUrl,
-      badge: iconeUrl,
+      ...(opcoes?.body !== undefined ? { body: opcoes.body } : {}),
+      ...(opcoes?.tag !== undefined ? { tag: opcoes.tag } : {}),
+      ...(iconeUrl !== undefined ? { icon: iconeUrl, badge: iconeUrl } : {}),
     });
 
     notif.onclick = () => {

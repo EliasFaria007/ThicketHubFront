@@ -82,7 +82,7 @@ describe("exportacao-pdf - Funções utilitárias de relatórios e O.S.", () => 
   });
 
   it("extrai dados completos da Ordem de Serviço de um chamado", () => {
-    const chamadoMock: Chamado = {
+    const chamadoMock: any = {
       id: "chamado-1",
       protocolo: "20261025-0042",
       titulo: "Computador não liga na sala 12",
@@ -127,9 +127,9 @@ describe("exportacao-pdf - Funções utilitárias de relatórios e O.S.", () => 
     expect(os.prioridadeFormatada).toBe("Alta");
     expect(os.slaStatus).toBe("Cumprido no prazo");
     expect(os.anexos.length).toBe(1);
-    expect(os.anexos[0].nome).toBe("foto.png");
+    expect(os.anexos[0]!.nome).toBe("foto.png");
     expect(os.registrosAtendimento.length).toBe(2);
-    expect(os.registrosAtendimento[0].autor).toBe("Carlos Souza");
+    expect(os.registrosAtendimento[0]!.autor).toBe("Carlos Souza");
     expect(os.temAssinaturaDigital).toBe(true);
     expect(os.assinaturaImagem).toBe("data:image/png;base64,signature123");
   });

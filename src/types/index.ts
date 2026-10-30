@@ -1,4 +1,4 @@
-export type Papel = "usuario" | "tecnico" | "admin" | "superusuario";
+﻿export type Papel = "usuario" | "tecnico" | "admin" | "superusuario";
 
 /**
  * Status do fluxo institucional conforme o back-end Java (normalizados para lowercase).
@@ -87,8 +87,16 @@ export interface Comentario {
 
 export interface HistoricoItem {
   id: string;
+  /**
+   * Tipo do evento. O back-end Java retorna em UPPER_CASE (normalizado pelo
+   * interceptor HTTP para lowercase). Tipos conhecidos do Java:
+   * abertura, assuncao, status, encaminhamento, comentario,
+   * pausa, retomada, resolucao, reabertura, vinculo, devolucao.
+   * O union inclui string & object como escape hatch para tipos futuros.
+   */
   tipo:
     | "criacao"
+    | "abertura"
     | "comentario"
     | "status"
     | "prioridade"
@@ -97,7 +105,12 @@ export interface HistoricoItem {
     | "devolucao"
     | "atendimento"
     | "reabertura"
-    | "avaliacao";
+    | "avaliacao"
+    | "pausa"
+    | "retomada"
+    | "resolucao"
+    | "vinculo"
+    | (string & object);
   descricao: string;
   autorNome: string;
   criadoEm: string;
@@ -171,7 +184,7 @@ export interface FiltrosChamados {
   prioridade?: PrioridadeChamado | "";
   setor?: string;
   servicoId?: string;
-  fila?: "geral" | "minha" | "resolvidos" | "";
+  fila?: "geral" | "minha" | "resolvidos" | "todas" | "";
   q?: string;
   page: number;
   limit: number;

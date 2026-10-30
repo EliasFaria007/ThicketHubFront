@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+﻿import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowLeft, Calendar, ClipboardCheck, Download, FileText, Hand, ImageIcon, ImagePlus, Link2, Loader2, Paperclip, PenLine, Printer, RotateCcw, Save, Send, Share2, Star, Trash2, Undo2, Upload } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -295,7 +295,7 @@ function DetalheChamadoPage() {
       if (imagensComentario.length > 0) {
         anexosEnvio = await Promise.all(imagensComentario.map(arquivoParaAnexo));
       }
-      return comentarChamado(id, { mensagem: textoComentario, interno, anexos: anexosEnvio });
+      return comentarChamado(id, { mensagem: textoComentario, interno, ...(anexosEnvio ? { anexos: anexosEnvio } : {}) });
     },
     onSuccess: () => {
       setMensagem("");
@@ -1472,7 +1472,7 @@ function DetalheChamadoPage() {
         aberto={modalOsAberta}
         aoMudarAberto={setModalOsAberta}
         chamado={chamado}
-        usuarioLogado={user ?? undefined}
+        {...(user ? { usuarioLogado: { nome: user.nome, papel: user.papel } } : {})}
       />
     </AppLayout>
   );

@@ -27,21 +27,17 @@ describe("web-push", () => {
 
   beforeEach(() => {
     mockLocalStorage.clear();
-    // @ts-expect-error mock window e localStorage
-    globalThis.window = {
+    globalThis.window = <any>{
       location: { href: "", origin: "http://localhost:3000" },
       focus: vi.fn(),
     };
-    // @ts-expect-error mock localStorage
-    globalThis.localStorage = mockLocalStorage;
+    globalThis.localStorage = mockLocalStorage as any;
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
-    // @ts-expect-error limpeza de mocks
     delete (globalThis.window as any)?.Notification;
-    // @ts-expect-error limpeza de mocks
-    delete globalThis.Notification;
+    (globalThis as any).Notification = undefined;
   });
 
   it("identifica corretamente se o navegador suporta notificações", () => {
